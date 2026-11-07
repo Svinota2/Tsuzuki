@@ -1,0 +1,91 @@
+/* ============================================================
+   Телефонная раскладка Tsuzuki.
+   Подключается только в phone-сборке (после tv.css).
+   Срабатывает на узких экранах; на планшете/ТВ/ПК не мешает.
+   ============================================================ */
+@media (max-width: 900px) {
+  .app { flex-direction: column; }
+
+  /* Боковое меню → нижняя панель навигации */
+  .sidebar {
+    width: 100%; min-width: 0; flex-shrink: 0;
+    position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 30;
+    flex-direction: row; align-items: center;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+    border-right: 0; border-top: 1px solid var(--line);
+    background: var(--bg-side);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, .35);
+  }
+  .logo { display: none; } /* на телефоне убираем логотип — все пункты в полосе */
+  .nav { flex-direction: row; gap: 0; width: 100%; justify-content: space-between; overflow-x: auto; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav a {
+    flex: 1 0 auto; flex-direction: column; align-items: center; gap: 2px;
+    padding: 5px 4px; font-size: 9.5px; line-height: 1.15; border-radius: 8px;
+    white-space: nowrap; text-align: center;
+  }
+  .nav-ico { font-size: 17px; line-height: 1; }
+  .sidebar-foot { display: none; }
+
+  .content { flex: 1; min-height: 0; padding-bottom: 62px; }
+  .page { padding: 14px 12px 40px; }
+  .page-title { font-size: 20px; margin-bottom: 12px; }
+
+  /* Каталог и карточки */
+  .toolbar { margin-bottom: 14px; flex-wrap: wrap; }
+  .toolbar .search { flex: 1 1 100%; min-width: 0; }
+  .toolbar select, .toolbar .btn { flex: 0 1 auto; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
+  .card-title { font-size: 12.5px; }
+  .card-meta { font-size: 11px; }
+
+  /* Страница тайтла */
+  .hero-inner { flex-direction: column; gap: 12px; padding: 14px 12px 6px; }
+  .hero-poster { width: 128px; }
+  .anime-title { font-size: 21px; }
+  .anime-sub { font-size: 13px; }
+  .meta-row { gap: 6px 12px; margin: 10px 0; font-size: 12.5px; }
+  .actions { gap: 8px; margin-top: 14px; }
+  .actions .btn-online { min-width: 0; flex: 1 1 100%; }
+  .section { padding: 4px 12px 8px; }
+  .section h2 { font-size: 15px; margin: 18px 0 10px; }
+  .description { max-width: none; font-size: 13px; line-height: 1.55; }
+  .episodes { grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 5px; max-width: none; }
+  .ep { min-height: 44px; } /* удобно нажимать пальцем */
+  .related { grid-template-columns: 1fr; max-width: none; }
+  .trailers { flex-direction: column; }
+  .trailers iframe { width: 100%; height: 200px; }
+
+  /* Плеер, история, настройки */
+  .watch-box { grid-template-columns: 1fr; max-width: none; }
+  .history-list { max-width: none; }
+  .history-item { padding: 8px; gap: 10px; }
+  .history-item .when { display: none; }
+  .settings { max-width: none; }
+  .box { padding: 12px 14px; }
+  .modal-box { width: calc(100vw - 24px); }
+  .toasts { left: 12px; right: 12px; transform: none; bottom: 74px; }
+  .toast { width: auto; }
+  .cal-list { max-width: none; }
+  .cal-title { font-size: 13px; }
+  .continue-block { margin-bottom: 14px; }
+  .player-top { flex-wrap: wrap; gap: 8px; padding: 8px 12px; }
+  .player-top .t { flex: 1 1 100%; order: -1; }
+  .privacy { max-width: none; font-size: 13.5px; }
+
+  /* Люди и достижения */
+  .people-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .profile-head { gap: 12px; }
+  .avatar-lg { width: 72px; height: 72px; }
+  .ach-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .roulette-box { width: calc(100vw - 20px); }
+  .rates-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* Узкий телефон в портрете: ещё компактнее */
+@media (max-width: 420px) {
+  .grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+  .page { padding: 12px 10px 36px; }
+  .ach-grid { grid-template-columns: 1fr; }
+  .nav a { font-size: 9px; }
+}
