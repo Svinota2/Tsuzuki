@@ -337,8 +337,20 @@
       try {
         await call('downloadAndInstall', lastUpdate.url, lastUpdate.sha256 || '');
       } catch (e) {
-        if (/Разреши/.test(e.message)) throw e; // пользователь сейчас даст разрешение и нажмёт ещё раз
-        B.openExternal(lastUpdate.url);
+        var msg = String((e && e.message) || '');
+        if (/Разреши/.test(msg)) throw e; // пользователь сейчас даст разрешение и нажмёт ещё раз
+        // ИСПРАВЛЕНО В 1.6.1: раньше при любой ошибке открывалась ссылка на сам APK —
+        // и файл, не прошедший проверку SHA-256, можно было скачать браузером в обход.
+        // Теперь: не совпал SHA-256 — только сообщение; другие ошибки — страница релиза.
+        if (/sha|хеш|хэш|контрольн|подмен|подлинн|совпад/i.test(msg)) {
+          throw new Error('Файл обновления не прошёл проверку подлинности (SHA-256) — ставить его нельзя. Попробуй позже.');
+        }
+        var page = String(lastUpdate.page || '');
+        if (page && updateHostAllowed(page)) {
+          B.openExternal(page);
+          return { ok: true, opened: true };
+        }
+        throw new Error('Не удалось скачать обновление — попробуй позже');
       }
       return { ok: true };
     },

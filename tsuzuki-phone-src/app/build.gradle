@@ -6,6 +6,21 @@ plugins {
     id 'com.android.application'
 }
 
+// ИЗМЕНЕНО В 1.6.1: настройки подписи читаются из keystore.properties (см. ниже)
+def keystoreFile = rootProject.file('keystore.properties')
+def keystoreProps = new Properties()
+if (keystoreFile.exists()) {
+    keystoreFile.withInputStream { keystoreProps.load(it) }
+}
+// Без keystore.properties релизную сборку не делаем — иначе получится APK,
+// который не встанет поверх установленного. Отладочная сборка работает и без него.
+gradle.taskGraph.whenReady { graph ->
+    if (!keystoreFile.exists() && graph.allTasks.any { it.name.toLowerCase().contains('release') }) {
+        throw new GradleException('Нет файла keystore.properties рядом с проектом. ' +
+            'Создай ключ: tsuzuki-src/tools/make-keystore.bat (подробно — в README).')
+    }
+}
+
 android {
     namespace 'local.tsuzuki.tv'
     compileSdk 35
@@ -14,19 +29,28 @@ android {
         applicationId 'local.tsuzuki.phone'
         minSdk 23          // Android 6.0 — подходит почти всем ТВ и приставкам
         targetSdk 35
-        versionCode 5
-        versionName '1.6.0'
+        versionCode 6   // ИЗМЕНЕНО В 1.6.1
+        versionName '1.6.1'
     }
 
-    // Ключ подписи лежит в проекте (tsuzuki.keystore), чтобы обновления
-    // ставились поверх старой версии. Пароль поменяй, если будешь публиковать.
-    // Внутренние имя/пароль ключа остались прежними (anidesk) — сам keystore не менялся.
+    // ИЗМЕНЕНО В 1.6.1: ключ подписи и пароли больше НЕ лежат в коде.
+    // Они в файле keystore.properties рядом с этим проектом (в git не попадает).
+    // Создать новый ключ и этот файл: tsuzuki-src\tools\make-keystore.bat
+    // Формат keystore.properties:
+    //   storeFile=C:/Users/имя/Documents/Tsuzuki-key/tsuzuki-release.jks
+    //   storePassword=…
+    //   keyAlias=tsuzuki
+    //   keyPassword=…
+    // ВАЖНО: ТВ и телефон подписываются ОДНИМ ключом; потеряешь ключ —
+    // обновления APK перестанут ставиться поверх. Храни 2 копии (флешка + облако).
     signingConfigs {
         release {
-            storeFile file('tsuzuki.keystore')
-            storePassword 'anidesk'
-            keyAlias 'anidesk'
-            keyPassword 'anidesk'
+            if (keystoreFile.exists()) {
+                storeFile file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
         }
     }
 

@@ -23,7 +23,9 @@
    - Linux: `npx electron-builder --linux dir` + `.deb`/`.tar.gz` (см. ниже);
    - Android ТВ: `cd ../tsuzuki-tv-src && ./sync-www.sh && ./gradlew assembleRelease`;
    - Android телефон: `cd ../tsuzuki-phone-src && ./sync-www.sh ../tsuzuki-src ../tsuzuki-tv-src && ./gradlew assembleRelease`.
-   Ключ подписи APK — всегда `tsuzuki.keystore` в проектах (тот же, что раньше).
+   Ключ подписи APK (ИЗМЕНЕНО В 1.6.1) — свой ключ вне исходников, пароли в
+   `keystore.properties` (см. «Ключ подписи APK» ниже). Без этого файла
+   `assembleRelease` остановится с понятной ошибкой.
 3. **Подготовь релиз:**
    ```
    node tools/make-release.mjs --repo "твой_ник/tsuzuki-releases"
@@ -41,6 +43,29 @@
 6. **Проверка:** для теста обновления положи version.json с версией `9.9.9` на localhost —
    при запуске из исходников (`npm start`) разрешён `http://localhost`, файл скачается,
    SHA-256 проверится, плашка появится.
+
+## Ключ подписи APK (ИЗМЕНЕНО В 1.6.1)
+
+Оба Android-проекта подписываются **одним** ключом. Ключ и пароли в коде больше не лежат.
+
+1. **Создать ключ (один раз):** двойной щелчок по `tools/make-keystore.bat`.
+   Скрипт найдёт `keytool` (из Android Studio), спросит папку (по умолчанию
+   `Документы\Tsuzuki-key`) и пароль (латиница, от 8 символов), создаст
+   `tsuzuki-release.jks` и запишет `keystore.properties` в `tsuzuki-tv-src` и
+   `tsuzuki-phone-src`. Существующий ключ скрипт не перезаписывает никогда.
+2. **Сразу сделай 2 копии** `tsuzuki-release.jks` (флешка + облако) и запиши пароль.
+   Потеряешь ключ — APK-обновления у людей перестанут ставиться поверх.
+3. `keystore.properties`, `*.jks`, `*.keystore` в `.gitignore` — на GitHub не попадут.
+   Перед `git push` всё равно проверь `git status`.
+4. Перенести на другой компьютер: скопируй `.jks` и запусти `make-keystore.bat`,
+   указав ту же папку — он не создаст новый ключ, а только запишет `keystore.properties`.
+5. Формат `keystore.properties` (если пишешь руками; путь — через `/`):
+   ```
+   storeFile=C:/Users/имя/Documents/Tsuzuki-key/tsuzuki-release.jks
+   storePassword=…
+   keyAlias=tsuzuki
+   keyPassword=…
+   ```
 
 ## Запуск из исходников
 

@@ -589,7 +589,13 @@ app.whenReady().then(() => {
   // («Проверять обновления автоматически» → prefs.custom.autoUpdate).
   // Проверка идёт при запуске и раз в settings.UPDATE_INTERVAL_HOURS часов,
   // таймер живёт в services.setUpdaterAuto(); выключено — не проверяем вовсе.
-  services.setUpdaterAuto(saved?.prefs?.custom?.autoUpdate !== false).catch(() => {});
+  // ИСПРАВЛЕНО В 1.6.1: setUpdaterAuto возвращает обычный объект, а не промис —
+  // «.catch» на нём падал с ошибкой при каждом запуске. Ошибки ловим через try.
+  try {
+    services.setUpdaterAuto(saved?.prefs?.custom?.autoUpdate !== false);
+  } catch (err) {
+    console.warn('[updater] не удалось включить автопроверку:', err && err.message);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
