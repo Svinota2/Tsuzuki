@@ -383,13 +383,35 @@ export async function render(root) {
   // Эти настройки влияют на выдачу каталога — после них каталог перезагрузится
   const CATALOG_KEYS = ['STRICT_SEARCH', 'DEFAULT_ORDER', 'MIN_VOTES', 'PAGE_SIZE', 'STACK_FRANCHISES', 'HIDE_JUNK_KINDS', 'HIDE_NO_POSTER', 'HIDE_ANONS'];
 
+  // ИЗМЕНЕНО В 1.6.2: ползунки больше не «трясутся».
+  // Раньше на каждое движение ползунка настройки сохранялись на диск целиком,
+  // а «Масштаб интерфейса» и «Ширина бокового меню» сразу меняли окно —
+  // ползунок уезжал из-под мышки, и значение прыгало (80 → 130 → 80…).
+  // Теперь пока тянешь — только подпись и лёгкий предпросмотр (карточки, углы),
+  // а сохранение и масштаб/ширина меню применяются, когда отпустишь ползунок.
+  const PREVIEW = {
+    cardWidth: (v) => document.documentElement.style.setProperty('--card-width', v + 'px'),
+    radius: (v) => {
+      document.documentElement.style.setProperty('--radius', v + 'px');
+      document.documentElement.style.setProperty('--radius-sm', Math.round(v * 0.66) + 'px');
+    },
+  };
+  let previewFrame = 0;
+
   function onOption(el, live) {
     const key = el.dataset.opt;
     const o = OPTIONS.find((x) => x.key === key);
     const value = o.type === 'toggle' ? el.checked : o.type === 'range' ? Number(el.value) : el.value;
     const label = root.querySelector(`[data-val="${key}"]`);
     if (label) label.textContent = value + (o.unit || '');
-    if (live && o.type === 'range' && !['uiScale', 'cardWidth', 'radius', 'sidebarWidth'].includes(key)) return; // числа сохраняем, когда отпустил ползунок
+    if (live) {
+      // пока тянешь: без сохранения; предпросмотр — не чаще раза за кадр
+      if (PREVIEW[key]) {
+        cancelAnimationFrame(previewFrame);
+        previewFrame = requestAnimationFrame(() => PREVIEW[key](value));
+      }
+      return;
+    }
     setOption(key, value);
     if (CATALOG_KEYS.includes(key)) resetCatalog();
   }
