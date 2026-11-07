@@ -60,7 +60,7 @@ public class NativeBridge {
 
     // Shikimori просит указывать название приложения в User-Agent
     // ИЗМЕНЕНО В 1.3: версия в User-Agent, перенос старого файла данных AniDesk
-    static final String USER_AGENT = "Tsuzuki/1.6.3 (anime tracker)"; // ИЗМЕНЕНО В 1.6.3
+    static final String USER_AGENT = "Tsuzuki/1.6.4 (anime tracker)"; // ИЗМЕНЕНО В 1.6.4
     static final String DATA_FILE = "tsuzuki-data.json";
     static final String OLD_DATA_FILE = "anidesk-data.json"; // файл старого названия (переносим один раз)
     static final List<String> VIDEO_EXT = Arrays.asList(".mp4", ".mkv", ".webm", ".m4v", ".mov", ".avi", ".ts");
