@@ -40,6 +40,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -60,7 +61,7 @@ public class NativeBridge {
 
     // Shikimori просит указывать название приложения в User-Agent
     // ИЗМЕНЕНО В 1.3: версия в User-Agent, перенос старого файла данных AniDesk
-    static final String USER_AGENT = "Tsuzuki/1.6.4 (anime tracker)"; // ИЗМЕНЕНО В 1.6.4
+    static final String USER_AGENT = "Tsuzuki/1.6.5 (anime tracker)"; // ИЗМЕНЕНО В 1.6.5
     static final String DATA_FILE = "tsuzuki-data.json";
     static final String OLD_DATA_FILE = "anidesk-data.json"; // файл старого названия (переносим один раз)
     static final List<String> VIDEO_EXT = Arrays.asList(".mp4", ".mkv", ".webm", ".m4v", ".mov", ".avi", ".ts");
@@ -549,6 +550,30 @@ public class NativeBridge {
                 fail(id, "Не удалось проверить: " + e.getMessage());
             }
         });
+    }
+
+    // ---------- ДОБАВЛЕНО В 1.6.5: полноэкранный плеер Kodik ----------
+    // Открывает embed-ссылку Kodik в отдельной Activity: там свой origin,
+    // свои cookie и десктопный User-Agent — видео запускается как в браузере,
+    // даже если iframe внутри приложения не смог.
+    @JavascriptInterface
+    public void openPlayer(String id, String url, String title) {
+        try {
+            String link = String.valueOf(url == null ? "" : url).trim();
+            URI uri = URI.create(link);
+            String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase();
+            String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase();
+            if (!"https".equals(scheme) || !(host.equals("kodikplayer.com") || host.endsWith(".kodikplayer.com"))) {
+                throw new IllegalArgumentException("Плеер открывается только с kodikplayer.com");
+            }
+            Intent i = new Intent(activity, PlayerActivity.class);
+            i.putExtra(PlayerActivity.EXTRA_URL, link);
+            i.putExtra(PlayerActivity.EXTRA_TITLE, title == null ? "" : title);
+            activity.startActivity(i);
+            ok(id, "true");
+        } catch (Exception e) {
+            fail(id, "Не удалось открыть плеер: " + e.getMessage());
+        }
     }
 
     // ---------- Обновление приложения: скачать APK и открыть установку ----------

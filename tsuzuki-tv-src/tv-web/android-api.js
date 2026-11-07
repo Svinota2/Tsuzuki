@@ -60,7 +60,7 @@
   var KODIK_API = 'https://kodik-api.com';
   var KODIK_TOKENS_URL = 'https://raw.githubusercontent.com/YaNesyTortiK/AnimeParsers/refs/heads/main/kdk_tokns/tokens.json';
   var KODIK_CACHE_KEY = 'tsuzuki.kodik.token';
-  var KODIK_UA = 'Tsuzuki/1.6.4 (anime tracker)';
+  var KODIK_UA = 'Tsuzuki/1.6.5 (anime tracker)';
 
   function b64utf8(s) {
     try {
@@ -526,6 +526,10 @@
     discordSet: async function () { return { ok: false }; },
     discordAvailable: async function () { return { configured: false }; },
     openPath: async function (p) { B.openPath(p); },
+
+    // ИЗМЕНЕНО В 1.6.5: полноэкранный плеер Kodik в отдельной Activity
+    // (свой origin и десктопный UA — видео играет, даже если iframe не смог)
+    openPlayer: function (url, title) { return call('openPlayer', url, title || ''); },
 
     // Сайты и сервисы открываются в браузере или приложении сервиса
     openWeb: async function (url) { B.openExternal(url); },

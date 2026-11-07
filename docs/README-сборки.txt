@@ -1,23 +1,23 @@
-TSUZUKI 1.6.4 — ВСЁ В ОДНОЙ ПАПКЕ
+TSUZUKI 1.6.5 — ВСЁ В ОДНОЙ ПАПКЕ
 Собрано: 07.11.2026
 
 ЧТО ВНУТРИ
 ----------
 Windows\
-  Tsuzuki-Setup-1.6.4.exe        установщик в тёмной теме приложения. Если Tsuzuki уже
+  Tsuzuki-Setup-1.6.5.exe        установщик в тёмной теме приложения. Если Tsuzuki уже
                                  установлен — обновляет на месте (данные сохраняются),
                                  запущенное приложение закрывает. После тихой установки
                                  (автообновление) Tsuzuki запускается сам.
   Tsuzuki-win-x64.zip            портативная версия: распаковать и запустить Tsuzuki.exe
 
 Linux\
-  Tsuzuki-1.6.4-amd64.deb        Ubuntu / Debian / Mint:
-                                 sudo apt install ./Tsuzuki-1.6.4-amd64.deb
-  Tsuzuki-1.6.4-linux-x64.tar.gz портативно: распаковать, chmod +x tsuzuki, ./tsuzuki
+  Tsuzuki-1.6.5-amd64.deb        Ubuntu / Debian / Mint:
+                                 sudo apt install ./Tsuzuki-1.6.5-amd64.deb
+  Tsuzuki-1.6.5-linux-x64.tar.gz портативно: распаковать, chmod +x tsuzuki, ./tsuzuki
 
 Android-TV\
-  Tsuzuki-TV-1.6.4.apk           для телевизора (пульт) и приставок
-  Tsuzuki-Phone-1.6.4.apk        для телефона/планшета: нижнее меню, карточки 2–3 колонки
+  Tsuzuki-TV-1.6.5.apk           для телевизора (пульт) и приставок
+  Tsuzuki-Phone-1.6.5.apk        для телефона/планшета: нижнее меню, карточки 2–3 колонки
 
 Исходники\
   tsuzuki-src\                   общий исходник Windows/Linux (Electron) + tools/make-release.mjs
@@ -27,6 +27,14 @@ Android-TV\
   История разработки — 07.11.2026.txt — что и когда делалось
   Промт-автообновление-Tsuzuki.txt — задание, по которому сделана 1.6
   История изменений: CHANGES-1.3.md … CHANGES-1.6.md в tsuzuki-src
+
+ЧТО НОВОГО В 1.6.5
+------------------
+- Android (ТВ и телефон): добавлен полноэкранный плеер Kodik в отдельной Activity
+  (свой origin, cookie, десктопный User-Agent) — кнопка «Плеер на весь экран ↗»
+  на странице онлайн-просмотра. Встроенный iframe теперь тоже открывается
+  с браузерным User-Agent и сторонними cookie.
+- ПК без изменений (только номер версии).
 
 ЧТО НОВОГО В 1.6.4
 ------------------

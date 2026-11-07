@@ -10,6 +10,7 @@ package local.tsuzuki.tv;
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.View;
@@ -51,6 +52,14 @@ public class MainActivity extends Activity {
         s.setLoadWithOverviewMode(true);
         s.setSupportZoom(false);
         s.setAllowFileAccess(false);
+        // ИЗМЕНЕНО В 1.6.5: встроенный плеер Kodik должен видеть обычный браузер.
+        // UA десктопный (без «wv»), разрешены сторонние cookie и смешанный контент —
+        // иначе Kodik показывает «Сервер с видео не отвечает».
+        s.setUserAgentString("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36");
+        if (Build.VERSION.SDK_INT >= 21) s.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+        android.webkit.CookieManager cookieManager = android.webkit.CookieManager.getInstance();
+        cookieManager.setAcceptCookie(true);
+        if (Build.VERSION.SDK_INT >= 21) cookieManager.setAcceptThirdPartyCookies(web, true);
 
         final WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
                 .setDomain(HOST)
