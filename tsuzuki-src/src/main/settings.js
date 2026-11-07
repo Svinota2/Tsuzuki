@@ -95,6 +95,6 @@ module.exports = {
   // Создай приложение на https://discord.com/developers/applications,
   // скопируй Application ID сюда, а в разделе Rich Presence → Art Assets
   // загрузи логотип с именем "logo". Пусто — статус в Discord выключен.
-  DISCORD_CLIENT_ID: '',
+  DISCORD_CLIENT_ID: '1568615771163201756', // добавлено: ID приложения Discord
   DISCORD_LARGE_IMAGE: 'logo',
 };

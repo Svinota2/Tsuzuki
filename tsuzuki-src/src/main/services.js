@@ -302,6 +302,7 @@ async function sendTelemetry(payload) {
 let updateState = { status: 'idle' };
 let pendingFile = null;
 let autoTimer = null;
+let autoEnabled = null; // ИСПРАВЛЕНО В 1.6.1: последнее значение настройки (null — ещё не задано)
 
 function compareVersions(a, b) {
   const pa = String(a || '').split('.').map((n) => parseInt(n, 10) || 0);
@@ -355,6 +356,13 @@ function releasePageOf(info) {
 
 // ИЗМЕНЕНО В 1.6: «Проверять обновления автоматически» реально выключает таймер и фоновые проверки
 function setUpdaterAuto(enabled) {
+  enabled = !!enabled;
+  // ИСПРАВЛЕНО В 1.6.1: настройку присылают и main.js при старте, и интерфейс
+  // (updater.js, custom.js). Раньше каждый вызов запускал новую проверку —
+  // при старте их было две, и установщик мог качаться дважды параллельно.
+  // Если значение не изменилось и таймер уже работает — ничего не делаем.
+  if (enabled === autoEnabled && (!enabled || autoTimer)) return { ok: true, enabled, unchanged: true };
+  autoEnabled = enabled;
   if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
   if (enabled) {
     checkUpdates(false).catch(() => {});
@@ -367,6 +375,13 @@ function setUpdaterAuto(enabled) {
 }
 
 async function checkUpdates(manual = false) {
+  // ИСПРАВЛЕНО В 1.6.1: не начинаем новую проверку, пока идёт предыдущая или уже
+  // качается/скачан установщик — иначе статус сбрасывался и файл качался повторно.
+  // (с запасом по времени: если проверка «зависла» дольше минуты, а скачивание — 10 минут, начинаем заново)
+  const busyFor = Date.now() - (updateState.at || 0);
+  if (updateState.status === 'checking' && busyFor < 60 * 1000) return updateState;
+  if (updateState.status === 'downloading' && busyFor < 10 * 60 * 1000) return updateState;
+  if (updateState.status === 'ready' && pendingFile && fs.existsSync(pendingFile)) return updateState;
   const jsonUrl = String(settings.UPDATE_JSON_URL || '').trim();
   if (!isConfiguredUrl(jsonUrl)) {
     setUpdaterState({ status: 'disabled' });
