@@ -1,0 +1,33 @@
+/* ============================================================
+   Доп. стили для Android TV: заметный фокус для пульта.
+   Цвет рамки — акцентный (меняется в «Настройках»).
+   ============================================================ */
+
+/* Убираем стандартную обводку и рисуем свою */
+:focus { outline: none; }
+:focus-visible, :focus { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: var(--radius-sm); }
+
+/* Карточки: рамка вокруг постера и лёгкое увеличение */
+.card:focus { outline: none; }
+.card:focus .card-poster { outline: 4px solid var(--accent); outline-offset: 3px; transform: scale(1.04); transition: transform .15s; }
+.card:focus .card-title { color: var(--accent); }
+.card:focus .card-plus { opacity: 1; }
+
+.continue-card:focus, .history-item:focus, .rel:focus, .service:focus, .news-item:focus {
+  outline: 3px solid var(--accent); outline-offset: 2px; background: var(--panel-2);
+}
+.continue-card:focus .continue-hide { opacity: 1; }
+
+.season:focus { outline: none; }
+.season:focus img, .season:focus .season-ph { border-color: var(--accent); transform: scale(1.05); transition: transform .15s; }
+.season:focus .season-title { color: var(--accent); }
+
+.nav a:focus { background: var(--panel-2); color: var(--text); outline-offset: -3px; }
+.tab:focus { color: var(--text); outline-offset: -3px; }
+.ep:focus { outline: 3px solid var(--text); outline-offset: 2px; transform: scale(1.08); }
+.btn:focus { box-shadow: 0 0 0 3px var(--accent); outline: none; }
+.select:focus, .input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); outline: none; }
+.check-row:focus { outline-offset: 4px; }
+
+/* На ТВ нет мыши: подсказки «правый клик / двойной клик» меняем на кнопки пульта */
+.hint-mouse { display: none; }

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <!-- Обёртка для Kodik-плеера: открывать ссылку плеера напрямую в окне нельзя
+       (Kodik отдаёт страницу «не существует»), а внутри iframe всё работает.
+       Поэтому окно грузит этот локальный файл, а он вставляет iframe. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src https: data:; frame-src https://kodikplayer.com https://*.kodikplayer.com https://kodik.info https://*.kodik.info https://kodik.biz https://*.kodik.biz" />
+  <title>Tsuzuki — плеер</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+    iframe { display: block; width: 100%; height: 100%; border: 0; }
+    .err {
+      display: flex; height: 100%; align-items: center; justify-content: center;
+      color: #c7ccd6; font: 15px/1.5 system-ui, "Segoe UI", sans-serif; text-align: center; padding: 20px;
+    }
+  </style>
+</head>
+<body>
+  <script>
+    (function () {
+      const params = new URLSearchParams(location.search);
+      const url = params.get('url') || '';
+      const title = params.get('title') || '';
+      if (title) document.title = title + ' — Tsuzuki';
+
+      const PLAYER_HOSTS = /(^|\.)(kodikplayer\.com|kodik\.info|kodik\.biz)$/i;
+      function fail(text) {
+        const d = document.createElement('div');
+        d.className = 'err';
+        d.textContent = text;
+        document.body.appendChild(d);
+      }
+
+      try {
+        const parsed = new URL(url);
+        if (!/^https?:$/.test(parsed.protocol) || !PLAYER_HOSTS.test(parsed.hostname)) {
+          throw new Error('unsupported');
+        }
+        const frame = document.createElement('iframe');
+        frame.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
+        frame.allowFullscreen = true;
+        frame.referrerPolicy = 'no-referrer';
+        frame.title = 'Kodik';
+        frame.src = parsed.toString();
+        document.body.appendChild(frame);
+      } catch (e) {
+        fail('Не удалось открыть плеер: неподдерживаемая ссылка.');
+      }
+    })();
+  </script>
+</body>
+</html>

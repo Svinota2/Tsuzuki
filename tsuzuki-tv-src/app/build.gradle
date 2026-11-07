@@ -1,0 +1,55 @@
+// ============================================================
+//  Сборка Android TV версии Tsuzuki.
+//  Команда: gradlew assembleRelease  →  app/build/outputs/apk/release/
+// ============================================================
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'local.tsuzuki.tv'
+    compileSdk 35
+
+    defaultConfig {
+        // applicationId ОСТАЁМ старым намеренно: иначе новая версия не встанет
+        // поверх установленного AniDesk-TV, и данные пропадут. Название в лаунчере
+        // берётся из android:label (Tsuzuki), а не отсюда.
+        applicationId 'local.anidesk.tv'
+        minSdk 23          // Android 6.0 — подходит почти всем ТВ и приставкам
+        targetSdk 35
+        versionCode 8
+        versionName '1.6.0'
+    }
+
+    // Ключ подписи лежит в проекте (tsuzuki.keystore), чтобы обновления
+    // ставились поверх старой версии. Пароль поменяй, если будешь публиковать.
+    // Внутренние имя/пароль ключа остались прежними (anidesk) — сам keystore не менялся.
+    signingConfigs {
+        release {
+            storeFile file('tsuzuki.keystore')
+            storePassword 'anidesk'
+            keyAlias 'anidesk'
+            keyPassword 'anidesk'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+    implementation 'androidx.documentfile:documentfile:1.0.1'
+    // ДОБАВЛЕНО В 1.5: фоновая проверка серий и FileProvider для обновлений
+    implementation 'androidx.work:work-runtime:2.9.1'
+    implementation 'androidx.core:core:1.13.1'
+}

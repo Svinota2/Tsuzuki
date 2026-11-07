@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <!-- Откуда можно грузить картинки, видео и скрипты. Добавил новый сайт с картинками — допиши сюда. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' https: data: file:; media-src 'self' file: blob:; frame-src https://kodikplayer.com https://*.kodikplayer.com https://kodik.info https://*.kodik.info https://kodik.biz https://*.kodik.biz; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'" />
+  <title>Tsuzuki</title>
+  <link rel="stylesheet" href="styles/theme.css" />
+  <link rel="stylesheet" href="styles/app.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- Боковое меню. Новый раздел: добавь ссылку сюда и маршрут в app.js -->
+    <aside class="sidebar">
+      <a class="logo" href="#/catalog" title="На главную — каталог">
+        <span class="logo-mark">◆</span>
+        <span class="logo-text">Tsuzuki</span>
+      </a>
+      <nav class="nav">
+        <a href="#/catalog" data-route="catalog"><span class="nav-ico">⊞</span>Каталог</a>
+        <a href="#/discover" data-route="discover"><span class="nav-ico">✦</span>Для тебя</a>
+        <a href="#/people" data-route="people"><span class="nav-ico">◍</span>Люди</a>
+        <a href="#/library" data-route="library"><span class="nav-ico">▤</span>Моя библиотека</a>
+        <a href="#/history" data-route="history"><span class="nav-ico">↺</span>История</a>
+        <a href="#/calendar" data-route="calendar"><span class="nav-ico">▦</span>Календарь</a>
+        <a href="#/stats" data-route="stats"><span class="nav-ico">∑</span>Статистика</a>
+        <a href="#/services" data-route="services"><span class="nav-ico">▶</span>Сервисы</a>
+        <a href="#/settings" data-route="settings"><span class="nav-ico">⚙</span>Настройки</a>
+      </nav>
+      <div class="sidebar-foot" id="sidebar-stats"></div>
+    </aside>
+
+    <!-- Сюда app.js рисует текущий раздел -->
+    <main class="content" id="view"></main>
+  </div>
+
+  <div class="toasts" id="toasts"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
