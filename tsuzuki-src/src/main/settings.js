@@ -8,7 +8,7 @@ module.exports = {
   SHIKIMORI_URL: 'https://shikimori.io',
 
   // Shikimori просит указывать название приложения в User-Agent.
-  USER_AGENT: 'Tsuzuki/1.6.4 (anime tracker)', // ИЗМЕНЕНО В 1.5
+  USER_AGENT: 'Tsuzuki/1.6.5 (anime tracker)', // ИЗМЕНЕНО В 1.5
 
   // ---------- Аккаунт Shikimori (двусторонняя синхронизация) ----------
   // Создай OAuth-приложение в настройках профиля на shikimori.io
