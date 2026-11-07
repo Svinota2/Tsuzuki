@@ -21,7 +21,7 @@ SetDatablockOptimize on
 
 !define APPNAME "Tsuzuki"
 !define APPOLD "AniDesk"
-!define APPVERSION "1.6.1"
+!define APPVERSION "1.6.3"
 !define APPDIR "${__FILEDIR__}\..\dist\win-unpacked"
 !define OUTFILE "${__FILEDIR__}\..\dist\Tsuzuki-Setup-${APPVERSION}.exe"
 !define ASSETS "${__FILEDIR__}\..\build\installer"
@@ -44,7 +44,7 @@ InstallDirRegKey HKCU "Software\${APPNAME}" "InstallDir"
 RequestExecutionLevel user
 BrandingText "Tsuzuki — каталог, трекер и онлайн-просмотр аниме"
 
-VIProductVersion "1.6.1.0"
+VIProductVersion "1.6.3.0"
 VIAddVersionKey "ProductName" "${APPNAME}"
 VIAddVersionKey "FileDescription" "${APPNAME} Setup"
 VIAddVersionKey "FileVersion" "${APPVERSION}.0"

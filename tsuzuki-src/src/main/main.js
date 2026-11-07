@@ -20,6 +20,7 @@ const adblockCosmetic = require('./adblock-cosmetic');
 const services = require('./services');   // аккаунт Shikimori, статистика, автообновление (1.3)
 const background = require('./background'); // трей, фоновые проверки серий (1.3)
 const extras = require('./extras');         // итоги года, Discord, автораскладка папок (1.5)
+const miniPlayer = require('./mini-player'); // ДОБАВЛЕНО В 1.6.3: отдельное окно мини-плеера
 
 const isDev = process.argv.includes('--dev');
 let mainWindow = null;
@@ -584,6 +585,9 @@ app.whenReady().then(() => {
   adblock.install(!saved?.prefs || saved.prefs.adblock !== false);
   registerIpc();
   createMainWindow();
+  // ДОБАВЛЕНО В 1.6.3: мини-плеер — отдельное окно без рамки поверх всех окон
+  miniPlayer.setMainWindowGetter(() => mainWindow);
+  miniPlayer.registerIpc();
 
   // ИЗМЕНЕНО В 1.6: автообновление включает/выключается пунктом настроек
   // («Проверять обновления автоматически» → prefs.custom.autoUpdate).

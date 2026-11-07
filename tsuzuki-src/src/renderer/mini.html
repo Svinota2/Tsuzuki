@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data:; media-src 'self' file: blob:; style-src 'self'; script-src 'self'" />
+  <title>Tsuzuki — мини-плеер</title>
+  <link rel="stylesheet" href="styles/mini.css" />
+</head>
+<body>
+  <div id="app">
+    <video id="video" playsinline preload="auto"></video>
+
+    <!-- Верхняя полоса: за неё можно перетаскивать окно. Появляется при наведении. -->
+    <div class="bar top" id="topbar">
+      <span class="title" id="title">Tsuzuki</span>
+      <span class="btns">
+        <button id="pin" class="ic" title="Поверх всех окон (булавка)">📌</button>
+        <button id="to-main" class="ic" title="Вернуть в основное окно">⤢</button>
+        <button id="close" class="ic" title="Закрыть мини-плеер (Esc)">✕</button>
+      </span>
+    </div>
+
+    <!-- Нижняя полоса: минимальные управление и полоса перемотки. -->
+    <div class="bar bottom" id="bottombar">
+      <button id="prev" class="ic" title="Предыдущая серия (P)">⏮</button>
+      <button id="play" class="ic" title="Пауза / играть (Пробел)">▶</button>
+      <button id="next" class="ic" title="Следующая серия (N)">⏭</button>
+      <input id="seek" type="range" min="0" max="1000" value="0" step="1" title="Перемотка" />
+      <span id="time" class="time">0:00</span>
+      <button id="mute" class="ic" title="Звук (M)">🔊</button>
+    </div>
+  </div>
+  <script src="mini.js" defer></script>
+</body>
+</html>

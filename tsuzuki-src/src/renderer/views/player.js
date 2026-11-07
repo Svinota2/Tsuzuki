@@ -5,6 +5,7 @@
 // ============================================================
 
 import { CONFIG } from '../config.js';
+import { setPlaying } from '../api/presence.js'; // ИЗМЕНЕНО В 1.6.2
 import * as store from '../store.js';
 import { esc, parseEpisodeNumber, formatTime, toast } from '../utils.js';
 
@@ -28,6 +29,7 @@ export async function render(root, [id, indexStr = '0']) {
   let index = Math.min(Math.max(0, Number(indexStr) || 0), files.length - 1);
   let markedThisFile = false;
   let lastSave = 0;
+  let resumeAt = 0; // ДОБАВЛЕНО В 1.6.3: куда вернуться из мини-плеера
 
   root.scrollTop = 0;
   root.innerHTML = `
@@ -42,6 +44,7 @@ export async function render(root, [id, indexStr = '0']) {
           <button class="btn btn-sm" id="prev">⏮ Пред.</button>
           <button class="btn btn-sm" id="next">След. ⏭</button>
           <button class="btn btn-sm" id="mark"></button>
+          <button class="btn btn-sm" id="mini" title="Отдельное окно без рамки, поверх всех окон">⧉ В отдельном окне</button>
           <span class="grow"></span>
           <select class="select" id="subs" title="Субтитры" style="height:30px;max-width:190px"></select>
           <button class="btn btn-sm" id="sub-minus" title="Субтитры раньше на 0,5 с">−0,5с</button>
@@ -175,6 +178,12 @@ export async function render(root, [id, indexStr = '0']) {
     index = i;
     markedThisFile = store.isWatched(id, episodeOf[i]);
     video.src = files[i].url;
+    // ДОБАВЛЕНО В 1.6.3: при возврате из мини-плеера продолжаем с того же места
+    if (resumeAt > 0) {
+      const at = resumeAt;
+      resumeAt = 0;
+      video.addEventListener('loadedmetadata', () => { try { video.currentTime = at; } catch { /* ignore */ } }, { once: true });
+    }
     // меняем адрес без перезагрузки раздела (чтобы «Назад» работал как надо)
     history.replaceState(null, '', `#/player/${id}/${i}`);
     drawSide();
@@ -186,19 +195,20 @@ export async function render(root, [id, indexStr = '0']) {
   // ---------- Статус в Discord (ДОБАВЛЕНО В 1.5) ----------
   // Показываем только при просмотре своих файлов и только если включено
   // в «Настройках» и указан DISCORD_CLIENT_ID в src/main/settings.js.
+  // ИЗМЕНЕНО В 1.6.2: отправка идёт через api/presence.js — он сам проверяет
+  // настройку, бережёт лимит Discord и после плеера возвращает статус раздела.
   let presenceStart = Date.now();
   function updatePresence() {
-    if (!CONFIG.DISCORD_PRESENCE || !window.api.discordSet) return;
     presenceStart = Date.now();
-    window.api.discordSet({
+    setPlaying({
       title: entry.title,
       episode: episodeOf[index],
       total: entry.episodes || 0,
       startedAt: presenceStart,
-    }).catch(() => {});
+    });
   }
   function clearPresence() {
-    if (window.api.discordSet) window.api.discordSet(null).catch(() => {});
+    setPlaying(null);
   }
 
   // ---------- События видео ----------
@@ -237,6 +247,49 @@ export async function render(root, [id, indexStr = '0']) {
   });
 
   // ---------- Кнопки ----------
+  // ---------- Мини-плеер: отдельное окно без рамки, поверх всех окон (ДОБАВЛЕНО В 1.6.3) ----------
+  const miniBtn = page.querySelector('#mini');
+  if (!window.api || !window.api.openMini) {
+    if (miniBtn) miniBtn.style.display = 'none';
+  } else if (miniBtn) {
+    miniBtn.addEventListener('click', async () => {
+      if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
+      video.pause();
+      const res = await window.api.openMini({
+        id: entry.id,
+        title: entry.title,
+        total: entry.episodes || 0,
+        index,
+        time: video.currentTime || 0,
+        discord: !!CONFIG.DISCORD_PRESENCE,
+        list: files.map((f, i) => ({ url: f.url, name: f.name, ep: episodeOf[i] })),
+      }).catch((err) => ({ ok: false, error: err.message }));
+      if (!res || !res.ok) toast('Не удалось открыть отдельное окно', 'error');
+      else toast('Мини-плеер: без рамки, поверх всех окон (булавка 📌 переключает)', 'ok');
+    });
+  }
+  // когда в мини-окне переключили серию или закрыли — синхронизируемся
+  const offMini = window.api && window.api.onMiniEvent ? window.api.onMiniEvent((ev) => {
+    if (!ev || !ev.type) return;
+    if (ev.type === 'update' && Number.isInteger(ev.index) && ev.index !== index) {
+      index = ev.index;
+      video.src = files[index].url;
+      history.replaceState(null, '', `#/player/${id}/${index}`);
+      drawSide();
+      drawBar();
+      refreshSubs();
+      updatePresence();
+      return;
+    }
+    if (ev.type === 'closed') {
+      const target = Number.isInteger(ev.index) ? Math.max(0, Math.min(ev.index, files.length - 1)) : index;
+      resumeAt = Number(ev.time) || 0;
+      play(target);
+      updatePresence();
+      toast('Мини-плеер закрыт — продолжаем здесь', 'ok');
+    }
+  }) : null;
+
   page.querySelector('#prev').addEventListener('click', () => index > 0 && play(index - 1));
   page.querySelector('#next').addEventListener('click', () => index < files.length - 1 && play(index + 1));
   page.querySelector('#mark').addEventListener('click', () => {
@@ -274,6 +327,7 @@ export async function render(root, [id, indexStr = '0']) {
   return () => {
     if (video.currentTime > 0 && !video.ended) store.savePosition(id, files[index].name, video.currentTime);
     document.removeEventListener('keydown', onKey);
+    if (offMini) offMini(); // ДОБАВЛЕНО В 1.6.3: отписываемся от событий мини-плеера
     clearTrack(); // ДОБАВЛЕНО В 1.4: освобождаем субтитры
     clearPresence(); // ДОБАВЛЕНО В 1.5: убираем статус в Discord
     video.pause();

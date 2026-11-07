@@ -41,7 +41,8 @@ export const CONFIG = {
   // ---------- Плеер ----------
   AUTO_MARK_PERCENT: 90,      // на скольких % серии отмечать её просмотренной
   AUTOPLAY_NEXT: true,        // включать следующую серию сама
-  DISCORD_PRESENCE: false,    // ДОБАВЛЕНО В 1.5: «Смотрит … серия N» в Discord (только свои файлы)
+  DISCORD_PRESENCE: false,    // ДОБАВЛЕНО В 1.5: статус в Discord (ПК); нужен DISCORD_CLIENT_ID в src/main/settings.js
+  DISCORD_PRESENCE_BROWSE: true, // ДОБАВЛЕНО В 1.6.2: показывать в статусе раздел и открытый тайтл, а не только плеер
   SEEK_STEP_SEC: 10,          // на сколько секунд перематывать стрелками
   SAVE_POSITION_EVERY_SEC: 5, // как часто запоминать, где остановился
 

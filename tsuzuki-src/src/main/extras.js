@@ -132,20 +132,39 @@ function sendActivity(activity) {
   }));
 }
 
-// data: { title, episode, total, startedAt } или null — убрать статус
+// data: { title, episode, total, startedAt }              — плеер;
+//       { kind: 'browse', details, state, startedAt }      — ДОБАВЛЕНО В 1.6.2: раздел приложения;
+//       null                                               — убрать статус
+// Discord требует, чтобы строки были от 2 до 128 символов — иначе отклоняет статус.
+const presenceText = (v) => {
+  const t = String(v || '').trim().slice(0, 120);
+  return t.length >= 2 ? t : undefined;
+};
+
 async function setPresence(data) {
   if (!data) {
     discord.activity = null;
     sendActivity(null);
     return { ok: true };
   }
-  const ep = data.episode ? `Серия ${data.episode}${data.total ? ' из ' + data.total : ''}` : undefined;
-  discord.activity = {
-    details: String(data.title || 'Смотрит аниме').slice(0, 120),
-    state: ep,
-    timestamps: data.startedAt ? { start: Math.floor(Number(data.startedAt) / 1000) } : undefined,
-    assets: { large_image: settings.DISCORD_LARGE_IMAGE || 'logo', large_text: 'Tsuzuki' },
-  };
+  const assets = { large_image: settings.DISCORD_LARGE_IMAGE || 'logo', large_text: 'Tsuzuki' };
+  const timestamps = data.startedAt ? { start: Math.floor(Number(data.startedAt) / 1000) } : undefined;
+  if (data.kind === 'browse') {
+    discord.activity = {
+      details: presenceText(data.details) || 'В Tsuzuki',
+      state: presenceText(data.state),
+      timestamps,
+      assets,
+    };
+  } else {
+    const ep = data.episode ? `Серия ${data.episode}${data.total ? ' из ' + data.total : ''}` : undefined;
+    discord.activity = {
+      details: presenceText(data.title) || 'Смотрит аниме',
+      state: presenceText(ep),
+      timestamps,
+      assets,
+    };
+  }
   const ok = await discordConnect().catch(() => false);
   if (ok) sendActivity(discord.activity);
   return { ok: !!ok };

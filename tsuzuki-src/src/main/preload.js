@@ -51,6 +51,14 @@ contextBridge.exposeInMainWorld('api', {
   // Веб-окна
   openWeb: (url, title) => ipcRenderer.invoke('web:open', url, title),
   openPlayer: (url, title) => ipcRenderer.invoke('player:open', url, title),
+  // ДОБАВЛЕНО В 1.6.3: отдельное окно мини-плеера (без рамки, поверх всех окон)
+  openMini: (data) => ipcRenderer.invoke('player:mini', data),
+  miniAvailable: () => ipcRenderer.invoke('player:mini-available'),
+  onMiniEvent: (fn) => {
+    const h = (_e, data) => fn(data);
+    ipcRenderer.on('mini:event', h);
+    return () => ipcRenderer.removeListener('mini:event', h);
+  },
   openExternal: (url) => ipcRenderer.invoke('web:external', url),
 
   // Блокировка рекламы

@@ -36,6 +36,7 @@ import * as autoscan from './views/autoscan.js'; // ДОБАВЛЕНО В 1.5
 import { checkNewEpisodes } from './api/notifications.js';
 import { startAutoSync } from './api/shikimori-sync.js';
 import { initUpdater } from './api/updater.js';
+import { onRoute as presenceOnRoute } from './api/presence.js'; // ДОБАВЛЕНО В 1.6.2: статус в Discord во всём приложении
 import { startTelemetry, showConsent, needsConsent } from './api/telemetry.js';
 
 const ROUTES = {
@@ -83,6 +84,8 @@ async function navigate() {
       return;
     }
     cleanup = result;
+    // ДОБАВЛЕНО В 1.6.2: статус в Discord — что сейчас открыто (см. api/presence.js)
+    presenceOnRoute(name, params.map(decodeURIComponent), root);
     // ДОБАВЛЕНО В 1.4: плавное появление раздела и карточек
     animateEnter();
   } catch (err) {
