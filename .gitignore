@@ -1,0 +1,20 @@
+# Ключи подписи и пароли — никогда не коммитить
+*.keystore
+*.jks
+local.properties
+
+# Сборки
+node_modules/
+dist/
+build/outputs/
+.gradle/
+app/build/
+*.apk
+*.exe
+*.deb
+*.AppImage
+*.tar.gz
+release/
+
+# Генерируется sync-www.sh
+app/src/main/assets/www/

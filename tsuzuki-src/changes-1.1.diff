@@ -1,0 +1,1496 @@
+diff -ruN -x node_modules -x changes-1.1.diff -x CHANGES-1.1.md src-orig/README.md tsuzuki/README.md
+--- src-orig/README.md	2026-11-02 19:20:36.628547243 +0300
++++ tsuzuki/README.md	2026-11-02 19:34:41.954364345 +0300
+@@ -161,3 +161,19 @@
+   проверены на mock-ответе Kodik.
+ - `watched` в записи — плоский список номеров серий: сезоны на Shikimori
+   учитываются как общий сквозной номер.
++
++## Обновление 1.1
++
++Что добавлено и где это править:
++
++| Что | Где в коде |
++|---|---|
++| Сезоны одной франшизы склеиваются в одну карточку («+N частей») в каталоге и библиотеке; на странице тайтла блок «Сезоны и части» с переключателем «OVA и спешлы» | `views/catalog.js` → `stackItems`, `views/library.js` → `stack`, `views/anime.js` → `seasonsHtml`, `api/shikimori.js` → `getFranchise` |
++| Чистый поиск: без клипов, рекламы, промо, тайтлов без постера; строгий поиск (только где есть все слова) | `api/shikimori.js` → `cleanList`, переключатели в `config.js` |
++| Сортировка «Лучшие»: высокий рейтинг + не меньше `MIN_VOTES` оценок; число оценок на карточке | `api/shikimori.js` → `searchAnimes`, `config.js` → `MIN_VOTES` |
++| Статистика Shikimori на странице тайтла (распределение оценок, сколько людей смотрит/бросило) и сравнение твоих оценок с Shikimori в «Статистике» | `views/anime.js` → `shikiStatsHtml`, `views/stats.js` |
++| Импорт из других программ: файл MyAnimeList (.xml/.xml.gz — MAL, Shikimori, Kitsu и др.) и AniList по нику | `api/importers.js`, кнопки в `views/settings.js` |
++| «Продолжить просмотр»: крестик на карточке, «Очистить», автоскрытие досмотренного и старого | `store.js` → `getContinueWatching`, `hideContinue`, `clearContinue` |
++| «Внешний вид и поведение» в настройках: тема (тёмная, OLED, сине-серая, светлая), масштаб, размер карточек, скругления, меню и все переключатели выше | `custom.js` → `OPTIONS` (добавь строчку — появится новый пункт), темы в `styles/theme.css` |
++
++При первом запуске после обновления приложение само дозапросит у Shikimori франшизу и оценку для старых записей (нужно для склейки сезонов и статистики) — это несколько секунд в фоне.
+diff -ruN -x node_modules -x changes-1.1.diff -x CHANGES-1.1.md src-orig/package.json tsuzuki/package.json
+--- src-orig/package.json	2026-11-02 19:20:36.628521057 +0300
++++ tsuzuki/package.json	2026-11-02 19:30:59.986900761 +0300
+@@ -1,7 +1,7 @@
+ {
+   "name": "tsuzuki",
+   "productName": "Tsuzuki",
+-  "version": "1.0.0",
++  "version": "1.1.0",
+   "description": "Каталог и трекер аниме для ПК: поиск через Shikimori, отметка серий, плеер своих файлов",
+   "main": "src/main/main.js",
+   "author": "Dmitrij Kofanov",
+diff -ruN -x node_modules -x changes-1.1.diff -x CHANGES-1.1.md src-orig/src/main/main.js tsuzuki/src/main/main.js
+--- src-orig/src/main/main.js	2026-11-02 19:20:36.627251861 +0300
++++ tsuzuki/src/main/main.js	2026-11-02 19:33:16.969551284 +0300
+@@ -4,6 +4,12 @@
+ //  работа с папками и файлами. Интерфейс лежит в src/renderer.
+ // ============================================================
+ 
++// ------------------------------------------------------------
++//  ИЗМЕНЕНО В 1.1 (Claude, 02.11.2026):
++//  - file:openText — открыть файл списка (.xml/.gz/.json) для импорта
++//  - anilist:graphql — запрос к AniList для импорта по нику
++// ------------------------------------------------------------
++
+ const { app, BrowserWindow, ipcMain, dialog, shell, net } = require('electron');
+ const path = require('path');
+ const fs = require('fs');
+@@ -332,6 +338,32 @@
+     return JSON.parse(fs.readFileSync(filePaths[0], 'utf8'));
+   });
+ 
++  // Открыть текстовый файл (импорт списков из других программ).
++  // .gz распаковываем сами — MyAnimeList отдаёт экспорт в .xml.gz
++  ipcMain.handle('file:openText', async (_e, { title, extensions } = {}) => {
++    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
++      title: title || 'Выбери файл',
++      filters: [{ name: 'Файлы списка', extensions: extensions || ['xml', 'gz', 'json', 'txt'] }],
++      properties: ['openFile'],
++    });
++    if (canceled || !filePaths[0]) return null;
++    let buf = fs.readFileSync(filePaths[0]);
++    if (filePaths[0].toLowerCase().endsWith('.gz')) buf = require('zlib').gunzipSync(buf);
++    return { name: path.basename(filePaths[0]), text: buf.toString('utf8') };
++  });
++
++  // AniList (импорт списка по нику). Только чтение открытых данных.
++  ipcMain.handle('anilist:graphql', async (_e, query, variables) => {
++    const res = await net.fetch('https://graphql.anilist.co', {
++      method: 'POST',
++      headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': settings.USER_AGENT },
++      body: JSON.stringify({ query, variables }),
++    });
++    const json = await res.json();
++    if (!res.ok || json.errors?.length) throw new Error(json.errors?.[0]?.message || `AniList ответил ${res.status}`);
++    return json.data;
++  });
++
+   ipcMain.handle('shiki:graphql', (_e, query, variables) =>
+     shikiRequest('/api/graphql', {
+       method: 'POST',
+diff -ruN -x node_modules -x changes-1.1.diff -x CHANGES-1.1.md src-orig/src/main/preload.js tsuzuki/src/main/preload.js
+--- src-orig/src/main/preload.js	2026-11-02 19:20:36.627389166 +0300
++++ tsuzuki/src/main/preload.js	2026-11-02 19:33:16.969924789 +0300
+@@ -5,6 +5,11 @@
+ //  в main.js (ipcMain.handle) и строчку сюда.
+ // ============================================================
+ 
++// ------------------------------------------------------------
++//  ИЗМЕНЕНО В 1.1 (Claude, 02.11.2026):
++//  - window.api.openTextFile и window.api.anilist (импорт из других программ)
++// ------------------------------------------------------------
++
+ const { contextBridge, ipcRenderer } = require('electron');
+ 
+ contextBridge.exposeInMainWorld('api', {
+@@ -15,6 +20,10 @@
+   exportData: (data) => ipcRenderer.invoke('data:export', data),
+   importData: () => ipcRenderer.invoke('data:import'),
+ 
++  // Импорт списков из других программ
++  openTextFile: (opts) => ipcRenderer.invoke('file:openText', opts),
++  anilist: (query, variables) => ipcRenderer.invoke('anilist:graphql', query, variables),
++
+   // Shikimori
+   graphql: (query, variables) => ipcRenderer.invoke('shiki:graphql', query, variables),
+   shikiGet: (path) => ipcRenderer.invoke('shiki:get', path),
+diff -ruN -x node_modules -x changes-1.1.diff -x CHANGES-1.1.md src-orig/src/renderer/api/importers.js tsuzuki/src/renderer/api/importers.js
+--- src-orig/src/renderer/api/importers.js	1970-01-01 03:00:00.000000000 +0300
++++ tsuzuki/src/renderer/api/importers.js	2026-11-02 19:34:32.678330525 +0300
+@@ -0,0 +1,88 @@
++// НОВЫЙ ФАЙЛ В 1.1 (Claude, 02.11.2026): импорт из MyAnimeList (XML) и AniList
++// ============================================================
++//  ИМПОРТ СПИСКОВ ИЗ ДРУГИХ ПРОГРАММ.
++//
++//  Все форматы сводятся к одному виду:
++//    { malId, status, episodes, score, updatedAt }
++//  id на Shikimori совпадает с id на MyAnimeList, поэтому дальше
++//  подробности тайтлов берём с Shikimori (getAnimesByIds).
++//
++//  Новый источник = функция, которая возвращает такой массив.
++//  Добавь её сюда и кнопку в views/settings.js.
++// ============================================================
++
++import { getAnimesByIds } from './shikimori.js';
++import { importRates } from '../store.js';
++
++// ---------- MyAnimeList XML ----------
++// Подходит для: MyAnimeList (Профиль → Export → Anime List, файл .xml.gz),
++// Shikimori (Настройки → Список → Экспорт в XML), Kitsu, AniList-экспортёров
++// и любой программы, которая умеет «экспорт в формате MAL».
++const MAL_STATUS = {
++  'watching': 'watching', '1': 'watching',
++  'completed': 'completed', '2': 'completed',
++  'on-hold': 'on_hold', 'on hold': 'on_hold', '3': 'on_hold',
++  'dropped': 'dropped', '4': 'dropped',
++  'plan to watch': 'planned', 'planned': 'planned', '6': 'planned',
++  'rewatching': 'watching',
++};
++
++export function parseMalXml(text) {
++  const doc = new DOMParser().parseFromString(text, 'text/xml');
++  if (doc.querySelector('parsererror')) throw new Error('Файл не похож на XML');
++  const nodes = [...doc.querySelectorAll('anime')];
++  if (!nodes.length) throw new Error('В файле нет тайтлов (нужен экспорт аниме-списка в формате MyAnimeList)');
++  const get = (n, tag) => n.querySelector(tag)?.textContent?.trim() || '';
++
++  return nodes
++    .map((n) => ({
++      malId: Number(get(n, 'series_animedb_id')),
++      status: MAL_STATUS[get(n, 'my_status').toLowerCase()] || 'planned',
++      episodes: Number(get(n, 'my_watched_episodes')) || 0,
++      score: Number(get(n, 'my_score')) || 0,
++      updatedAt: null,
++    }))
++    .filter((r) => r.malId > 0);
++}
++
++// ---------- AniList по нику ----------
++const ANILIST_STATUS = {
++  CURRENT: 'watching', REPEATING: 'watching', COMPLETED: 'completed',
++  PAUSED: 'on_hold', DROPPED: 'dropped', PLANNING: 'planned',
++};
++
++export async function fetchAniList(userName) {
++  const data = await window.api.anilist(`
++    query ($name: String) {
++      MediaListCollection(userName: $name, type: ANIME) {
++        lists { entries { status progress score(format: POINT_10) updatedAt media { idMal } } }
++      }
++    }`, { name: userName });
++  const entries = (data?.MediaListCollection?.lists || []).flatMap((l) => l.entries || []);
++  const withMal = entries.filter((x) => x.media?.idMal);
++  return {
++    noMal: entries.length - withMal.length, // тайтлы, которых нет на MAL/Shikimori
++    rates: withMal.map((x) => ({
++      malId: x.media.idMal,
++      status: ANILIST_STATUS[x.status] || 'planned',
++      episodes: x.progress || 0,
++      score: x.score || 0,
++      updatedAt: x.updatedAt ? new Date(x.updatedAt * 1000).toISOString() : null,
++    })),
++  };
++}
++
++// ---------- Общий шаг: подтянуть тайтлы с Shikimori и записать ----------
++// mode: 'overwrite' или 'skip' (см. importRates в store.js)
++export async function applyImport(rates, { mode = 'overwrite', onProgress = () => {} } = {}) {
++  const byId = new Map(rates.map((r) => [Number(r.malId), r]));
++  const animes = await getAnimesByIds([...byId.keys()], onProgress);
++
++  const ready = [];
++  for (const a of animes) {
++    const r = byId.get(Number(a.id));
++    ready.push({ anime: a, status: r.status, episodes: r.episodes, score: r.score, updatedAt: r.updatedAt || undefined });
++  }
++  const { added, skipped } = importRates(ready, mode);
++  return { added, skipped, notFound: byId.size - animes.length };
++}
+diff -ruN -x node_modules -x changes-1.1.diff -x CHANGES-1.1.md src-orig/src/renderer/api/shikimori.js tsuzuki/src/renderer/api/shikimori.js
+--- src-orig/src/renderer/api/shikimori.js	2026-11-02 19:20:36.627799786 +0300
++++ tsuzuki/src/renderer/api/shikimori.js	2026-11-02 19:34:32.676856050 +0300
+@@ -5,6 +5,16 @@
+ //  Список всех полей: https://shikimori.io/api/doc/graphql
+ // ============================================================
+ 
++// ------------------------------------------------------------
++//  ИЗМЕНЕНО В 1.1 (Claude, 02.11.2026):
++//  - CARD_FIELDS: + english, rating, franchise, genres, scoresStats
++//  - FULL_FIELDS: + scoresStats, statusesStats (статистика Shikimori)
++//  - cleanList — убираем клипы, рекламу, промо, тайтлы без постера
++//  - searchAnimes: сортировка «Лучшие», строгий поиск
++//  - getFranchise — все сезоны франшизы
++//  - getAnimesByIds — сведения о многих тайтлах (импорт, дозаполнение)
++// ------------------------------------------------------------
++
+ import { CONFIG } from '../config.js';
+ import { sleep } from '../utils.js';
+ import { getPrefs } from '../store.js';
+@@ -15,16 +25,22 @@
+   return CONFIG.HIDE_18_PLUS && getPrefs().showAdult !== true;
+ }
+ 
+-// Поля для карточек в каталоге (коротко, чтобы грузилось быстро)
++// Поля для карточек в каталоге (коротко, чтобы грузилось быстро).
++// genres и rating нужны, чтобы вырезать хентай; scoresStats — число оценок;
++// franchise — чтобы склеивать сезоны.
+ const CARD_FIELDS = `
+-  id name russian kind status score episodes episodesAired
+-  airedOn { year }
++  id name russian english kind status score episodes episodesAired rating franchise
++  airedOn { year date }
+   poster { mainUrl previewUrl }
++  genres { id }
++  scoresStats { count }
+ `;
+ 
+ // Поля для страницы аниме (подробно)
+ const FULL_FIELDS = `
+   ${CARD_FIELDS}
++  scoresStats { score count }
++  statusesStats { status count }
+   english japanese duration rating nextEpisodeAt
+   releasedOn { date }
+   airedOn { date year }
+@@ -54,20 +70,56 @@
+     .join(', ');
+ }
+ 
+-// Поиск и каталог
++// ------------------------------------------------------------
++//  Фильтр «мусора». Применяется ко всему, что приходит из каталога.
++// ------------------------------------------------------------
++export const votesOf = (a) => (a?.scoresStats || []).reduce((sum, x) => sum + (x.count || 0), 0);
++
++const hasPoster = (a) => a?.poster?.mainUrl && !/missing/.test(a.poster.mainUrl);
++
++// Строгий поиск: оставляем только тайтлы, в названии которых есть все слова запроса
++const norm = (t) => String(t || '').toLowerCase().replaceAll('ё', 'е');
++function matchesAllWords(a, search) {
++  const words = norm(search).split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 1);
++  if (!words.length) return true;
++  const hay = norm([a.russian, a.name, a.english].join(' '));
++  return words.every((w) => hay.includes(w));
++}
++
++function cleanList(list, { kindChosen, statusChosen, order, search } = {}) {
++  return list.filter((a) => {
++    if (CONFIG.STRICT_SEARCH && search?.trim() && !matchesAllWords(a, search)) return false;
++    if (CONFIG.HIDE_NO_POSTER && !hasPoster(a)) return false;
++    if (CONFIG.HIDE_ANONS && !statusChosen && a.status === 'anons') return false;
++    if (CONFIG.HIDE_JUNK_KINDS && !kindChosen && CONFIG.JUNK_KINDS.includes(a.kind)) return false;
++    if (order === 'top' && votesOf(a) < CONFIG.MIN_VOTES) return false;
++    return true;
++  });
++}
++
++// Поиск и каталог.
++// Возвращает массив уже очищенных тайтлов; в list.rawCount — сколько пришло
++// с сервера (по нему каталог понимает, есть ли следующая страница).
+ export async function searchAnimes({ search, page = 1, order, kind, status, genre, year, season, rating } = {}) {
+   // Shikimori принимает сезон в виде "fall_2024" или просто год "2024".
+   let seasonValue = '';
+   if (year) seasonValue = season ? `${season}_${year}` : String(year);
+   else if (season) seasonValue = `${season}_${new Date().getFullYear()}`;
+ 
++  let wanted = order || CONFIG.DEFAULT_ORDER;
++  // При поиске по названию «Лучшие» мешают (прячут малоизвестное) — ищем по популярности
++  if (wanted === 'top' && search?.trim()) wanted = 'popularity';
++  // «Лучшие» = сортировка по рейтингу на сервере + отсев тайтлов с малым числом оценок у нас
++  const apiOrder = wanted === 'top' ? 'ranked' : wanted;
++  // Клипы/рекламу отсекаем прямо в запросе, если тип не выбран вручную
++  const kindValue = kind || (CONFIG.HIDE_JUNK_KINDS ? CONFIG.JUNK_KINDS.map((k) => '!' + k).join(',') : '');
++
+   const a = args({
+     search: search?.trim(),
+     page,
+     limit: CONFIG.PAGE_SIZE,
+-    // при поиске по названию лучше сортировать по популярности
+-    order: order || CONFIG.DEFAULT_ORDER,
+-    kind,
++    order: apiOrder,
++    kind: kindValue,
+     status,
+     genre,
+     season: seasonValue,
+@@ -75,7 +127,38 @@
+     censored: hideAdult() ? true : undefined,
+   });
+   const data = await gql(`{ animes(${a}) { ${CARD_FIELDS} } }`);
+-  return data.animes;
++  const raw = data.animes || [];
++  const list = cleanList(raw, { kindChosen: !!kind, statusChosen: !!status, order: wanted, search });
++  list.rawCount = raw.length;
++  return list;
++}
++
++// Все сезоны/фильмы/OVA одной франшизы, по дате выхода
++const franchiseCache = new Map();
++export async function getFranchise(franchise) {
++  if (!franchise) return [];
++  if (franchiseCache.has(franchise)) return franchiseCache.get(franchise);
++  const data = await gql(`{ animes(franchise: ${JSON.stringify(franchise)}, limit: 50, order: aired_on,
++    kind: "tv,movie,ova,ona,special,tv_special"${hideAdult() ? ', censored: true' : ''}) { ${CARD_FIELDS} } }`);
++  const list = (data.animes || [])
++    .sort((x, y) => String(x.airedOn?.date || x.airedOn?.year || '9999').localeCompare(String(y.airedOn?.date || y.airedOn?.year || '9999')));
++  franchiseCache.set(franchise, list);
++  return list;
++}
++
++// Короткие сведения о многих тайтлах сразу (по 50 за запрос).
++// Нужно для импорта и чтобы дозаполнить франшизу/рейтинг у старых записей.
++export async function getAnimesByIds(ids, onProgress = () => {}) {
++  const list = [...new Set(ids.map(Number).filter((n) => n > 0))];
++  const out = [];
++  for (let i = 0; i < list.length; i += 50) {
++    const chunk = list.slice(i, i + 50);
++    const data = await gql(`{ animes(ids: "${chunk.join(',')}", limit: ${chunk.length}) { ${CARD_FIELDS} } }`);
++    out.push(...(data.animes || []));
++    onProgress(Math.min(i + 50, list.length), list.length);
++    if (i + 50 < list.length) await sleep(400); // не злим Shikimori частыми запросами
++  }
++  return out;
+ }
+ 
+ // Одно аниме со всеми подробностями
+diff -ruN -x node_modules -x changes-1.1.diff -x CHANGES-1.1.md src-orig/src/renderer/app.js tsuzuki/src/renderer/app.js
+--- src-orig/src/renderer/app.js	2026-11-02 19:20:36.627496890 +0300
++++ tsuzuki/src/renderer/app.js	2026-11-02 19:33:16.970615461 +0300
+@@ -5,7 +5,15 @@
+ //  render(root, params) и допиши его в ROUTES.
+ // ============================================================
+ 
+-import { initStore, onChange, countByStatus, listEntries, getPrefs } from './store.js';
++// ------------------------------------------------------------
++//  ИЗМЕНЕНО В 1.1 (Claude, 02.11.2026):
++//  - applyCustom() при запуске
++//  - backfillMeta — дозаполняет франшизу и оценку Shikimori у старых записей
++// ------------------------------------------------------------
++
++import { initStore, onChange, countByStatus, listEntries, getPrefs, entriesMissingMeta, applyMeta } from './store.js';
++import { applyCustom } from './custom.js';
++import { getAnimesByIds } from './api/shikimori.js';
+ import { applyAccent } from './theme.js';
+ import { toast } from './utils.js';
+ import * as catalog from './views/catalog.js';
+@@ -79,6 +87,7 @@
+   // Блокировка рекламы включена по умолчанию (можно выключить в «Настройках»)
+   window.api.setAdblock(getPrefs().adblock !== false).catch(() => {});
+   applyAccent();
++  applyCustom(); // тема, размеры, настройки из «Внешний вид и поведение»
+   renderSidebarStats();
+   onChange(renderSidebarStats);
+   window.addEventListener('hashchange', navigate);
+@@ -88,6 +97,19 @@
+ 
+   // Проверяем новые серии в фоне, чтобы не задерживать запуск
+   setTimeout(checkNewEpisodes, 1200);
++  // Дозаполняем франшизу и оценку Shikimori у старых записей (для склейки сезонов и статистики)
++  setTimeout(backfillMeta, 4000);
++}
++
++async function backfillMeta() {
++  const missing = entriesMissingMeta();
++  if (!missing.length) return;
++  try {
++    const list = await getAnimesByIds(missing.map((e) => e.id));
++    applyMeta(list);
++  } catch (err) {
++    console.warn('Не удалось дозаполнить сведения о тайтлах:', err);
++  }
+ }
+ 
+ start();
+diff -ruN -x node_modules -x changes-1.1.diff -x CHANGES-1.1.md src-orig/src/renderer/components/card.js tsuzuki/src/renderer/components/card.js
+--- src-orig/src/renderer/components/card.js	2026-11-02 19:20:36.627854863 +0300
++++ tsuzuki/src/renderer/components/card.js	2026-11-02 19:33:16.970871064 +0300
+@@ -2,12 +2,27 @@
+ //  Карточка аниме для сетки (каталог и библиотека).
+ // ============================================================
+ 
+-import { esc, titleOf, kindLabel, statusInfo } from '../utils.js';
++// ------------------------------------------------------------
++//  ИЗМЕНЕНО В 1.1 (Claude, 02.11.2026):
++//  - shortNumber, число оценок на карточке
++//  - значок «+N частей» и вид «стопки» для склеенных сезонов
++// ------------------------------------------------------------
++
++import { esc, titleOf, kindLabel, statusInfo, plural } from '../utils.js';
+ import { getEntry } from '../store.js';
++import { CONFIG } from '../config.js';
++
++// 12345 → «12 тыс.», 1500000 → «1,5 млн»
++export function shortNumber(n) {
++  if (n >= 1e6) return (n / 1e6).toFixed(1).replace('.0', '').replace('.', ',') + ' млн';
++  if (n >= 1e3) return Math.round(n / 1e3) + ' тыс.';
++  return String(n);
++}
+ 
+ // anime — объект Shikimori ИЛИ запись из библиотеки (у них похожие поля)
+ // options.showPlus — показывать кнопку «+1 серия» (в библиотеке)
+-export function cardHtml(anime, { showPlus = false } = {}) {
++// options.stack — сколько ещё сезонов этой франшизы спрятано под карточкой
++export function cardHtml(anime, { showPlus = false, stack = 0 } = {}) {
+   const entry = getEntry(anime.id);
+   const poster = anime.poster?.mainUrl || anime.poster || '';
+   const title = anime.title || titleOf(anime);
+@@ -21,12 +36,18 @@
+   const watched = entry?.watched?.length || 0;
+   const progress = total && watched ? Math.min(100, (watched / total) * 100) : 0;
+ 
+-  const meta = [kindLabel(anime.kind), year].filter(Boolean).join(' · ');
++  const votes = (anime.scoresStats || []).reduce((sum, x) => sum + (x.count || 0), 0);
++  const meta = [
++    kindLabel(anime.kind),
++    year,
++    CONFIG.SHOW_VOTES && votes ? `${shortNumber(votes)} ${plural(votes, ['оценка', 'оценки', 'оценок'])}` : '',
++  ].filter(Boolean).join(' · ');
+   const epInfo = entry && watched ? ` · ${watched}${total ? '/' + total : ''} эп.` : '';
+ 
+   return `
+-    <div class="card" data-open="${anime.id}" title="${esc(title)}">
++    <div class="card ${stack ? 'stacked' : ''}" data-open="${anime.id}" title="${esc(title)}">
+       <div class="card-poster">
++        ${stack ? `<span class="card-stack" title="Ещё ${stack} из этой франшизы (сезоны, фильмы, OVA) — список на странице тайтла">+${stack} ${plural(stack, ['часть', 'части', 'частей'])}</span>` : ''}
+         ${poster ? `<img src="${esc(poster)}" loading="lazy" alt="">` : ''}
+         ${score ? `<span class="card-score ${isLibraryEntry ? 'mine' : ''}" title="${isLibraryEntry ? 'Твоя оценка' : 'Оценка на Shikimori'}">★ ${score}</span>` : ''}
+         ${status ? `<span class="card-badge" style="background:${status.color}" title="${esc(status.label)}"></span>` : ''}
+diff -ruN -x node_modules -x changes-1.1.diff -x CHANGES-1.1.md src-orig/src/renderer/config.js tsuzuki/src/renderer/config.js
+--- src-orig/src/renderer/config.js	2026-11-02 19:20:36.627532474 +0300
++++ tsuzuki/src/renderer/config.js	2026-11-02 19:34:32.677200633 +0300
+@@ -3,13 +3,41 @@
+ //  Поменял — нажми Ctrl+R в приложении (перезагрузка интерфейса).
+ // ============================================================
+ 
++// ------------------------------------------------------------
++//  ИЗМЕНЕНО В 1.1 (Claude, 02.11.2026):
++//  - новые настройки: HIDE_JUNK_KINDS, HIDE_NO_POSTER, HIDE_ANONS, STRICT_SEARCH, MIN_VOTES, SHOW_VOTES, STACK_FRANCHISES, SHOW_NEWS, SHOW_CONTINUE, CONTINUE_*, SHOW_SIDEBAR_STATS
++//  - сортировка top («Лучшие») по умолчанию
++// ------------------------------------------------------------
++
+ export const CONFIG = {
+   // ---------- Каталог ----------
+   PAGE_SIZE: 30,              // сколько аниме грузить за раз (Shikimori отдаёт максимум 50)
+-  DEFAULT_ORDER: 'popularity', // сортировка по умолчанию (варианты ниже, в ORDERS)
++  DEFAULT_ORDER: 'top',       // сортировка по умолчанию (варианты ниже, в ORDERS)
+   HIDE_18_PLUS: true,         // скрывать 18+ по умолчанию (показ включается в «Настройках»)
+   SEARCH_DELAY_MS: 400,       // пауза после ввода в поиск, прежде чем отправить запрос
+ 
++  // Чистка каталога и поиска
++  HIDE_JUNK_KINDS: true,      // прятать клипы, рекламу и промо-ролики (их можно выбрать в фильтре «Тип» вручную)
++  JUNK_KINDS: ['music', 'cm', 'pv'],
++  HIDE_NO_POSTER: true,       // прятать тайтлы без постера (обычно пустые карточки)
++  HIDE_ANONS: false,          // прятать анонсы (ещё не вышедшее)
++  STRICT_SEARCH: true,        // в поиске оставлять только тайтлы, где есть ВСЕ слова запроса
++
++  // «Лучшие»: высокий рейтинг И много оценок
++  MIN_VOTES: 2000,            // меньше оценок — тайтл в «Лучших» не показываем
++  SHOW_VOTES: true,           // показывать число оценок на карточке
++
++  // Сезоны одной франшизы показывать одной карточкой (в каталоге и библиотеке)
++  STACK_FRANCHISES: true,
++
++  // Блоки на главной
++  SHOW_NEWS: true,            // «Вышли новые серии»
++  SHOW_CONTINUE: true,        // «Продолжить просмотр»
++  CONTINUE_LIMIT: 6,          // сколько карточек в «Продолжить просмотр»
++  CONTINUE_MAX_DAYS: 60,      // не показывать то, что открывал больше N дней назад (0 — без ограничения)
++  CONTINUE_HIDE_COMPLETED: true, // не показывать тайтлы со статусом «Просмотрено»
++  SHOW_SIDEBAR_STATS: true,   // счётчики внизу бокового меню
++
+   // ---------- Плеер ----------
+   AUTO_MARK_PERCENT: 90,      // на скольких % серии отмечать её просмотренной
+   AUTOPLAY_NEXT: true,        // включать следующую серию сама
+@@ -46,6 +74,7 @@
+ 
+   // ---------- Подписи для фильтров (переводы значений Shikimori) ----------
+   ORDERS: {
++    top:        'Лучшие (рейтинг + много оценок)',
+     popularity: 'По популярности',
+     ranked:     'По рейтингу',
+     aired_on:   'По дате выхода',
+diff -ruN -x node_modules -x changes-1.1.diff -x CHANGES-1.1.md src-orig/src/renderer/custom.js tsuzuki/src/renderer/custom.js
+--- src-orig/src/renderer/custom.js	1970-01-01 03:00:00.000000000 +0300
++++ tsuzuki/src/renderer/custom.js	2026-11-02 19:33:16.973906084 +0300
+@@ -0,0 +1,108 @@
++// НОВЫЙ ФАЙЛ В 1.1 (Claude, 02.11.2026): раздел «Внешний вид и поведение»
++// ============================================================
++//  КАСТОМИЗАЦИЯ.
++//  Всё, что можно настроить мышкой в «Настройках» → «Внешний вид и поведение».
++//
++//  Хочешь добавить свой пункт — допиши объект в OPTIONS:
++//    { key, label, type, group, ... }
++//  type: 'range' (min, max, step, unit), 'toggle', 'select' (choices)
++//  Если key совпадает с полем CONFIG (config.js) — значение просто
++//  перекроет его. Если нет — опиши, что делать, в apply ниже.
++//  Значения хранятся в твоём файле данных (prefs.custom).
++// ============================================================
++
++import { CONFIG } from './config.js';
++import { getPrefs, setPref } from './store.js';
++
++// Исходные значения CONFIG — чтобы можно было вернуть «как было»
++const DEFAULTS = { ...CONFIG };
++
++export const THEMES = {
++  dark: 'Тёмная',
++  oled: 'Чёрная (OLED)',
++  dusk: 'Сине-серая',
++  light: 'Светлая',
++};
++
++export const GROUPS = {
++  look: 'Внешний вид',
++  catalog: 'Каталог и поиск',
++  home: 'Главная',
++  tracker: 'Трекер и плеер',
++};
++
++export const OPTIONS = [
++  // ---------- Внешний вид ----------
++  { key: 'theme', group: 'look', label: 'Тема', type: 'select', choices: THEMES, def: 'dark' },
++  { key: 'uiScale', group: 'look', label: 'Масштаб интерфейса', type: 'range', min: 80, max: 130, step: 5, unit: '%', def: 100 },
++  { key: 'cardWidth', group: 'look', label: 'Размер карточек', type: 'range', min: 120, max: 260, step: 4, unit: 'px', def: 172 },
++  { key: 'radius', group: 'look', label: 'Скругление углов', type: 'range', min: 0, max: 22, step: 1, unit: 'px', def: 12 },
++  { key: 'sidebarWidth', group: 'look', label: 'Ширина бокового меню', type: 'range', min: 170, max: 300, step: 5, unit: 'px', def: 220 },
++  { key: 'SHOW_SIDEBAR_STATS', group: 'look', label: 'Счётчики внизу меню', type: 'toggle' },
++  { key: 'animations', group: 'look', label: 'Анимации', type: 'toggle', def: true },
++
++  // ---------- Каталог ----------
++  { key: 'DEFAULT_ORDER', group: 'catalog', label: 'Сортировка по умолчанию', type: 'select', choices: () => CONFIG.ORDERS },
++  { key: 'MIN_VOTES', group: 'catalog', label: 'Минимум оценок для «Лучших»', type: 'range', min: 0, max: 20000, step: 500, unit: '' },
++  { key: 'PAGE_SIZE', group: 'catalog', label: 'Тайтлов за одну подгрузку', type: 'range', min: 10, max: 50, step: 5, unit: '' },
++  { key: 'STACK_FRANCHISES', group: 'catalog', label: 'Склеивать сезоны одной франшизы', type: 'toggle' },
++  { key: 'STRICT_SEARCH', group: 'catalog', label: 'Строгий поиск: только где есть все слова запроса', type: 'toggle' },
++  { key: 'HIDE_JUNK_KINDS', group: 'catalog', label: 'Прятать клипы, рекламу и промо', type: 'toggle' },
++  { key: 'HIDE_NO_POSTER', group: 'catalog', label: 'Прятать тайтлы без постера', type: 'toggle' },
++  { key: 'HIDE_ANONS', group: 'catalog', label: 'Прятать анонсы (ещё не вышло)', type: 'toggle' },
++  { key: 'SHOW_VOTES', group: 'catalog', label: 'Показывать число оценок на карточках', type: 'toggle' },
++
++  // ---------- Главная ----------
++  { key: 'SHOW_NEWS', group: 'home', label: 'Блок «Вышли новые серии»', type: 'toggle' },
++  { key: 'SHOW_CONTINUE', group: 'home', label: 'Блок «Продолжить просмотр»', type: 'toggle' },
++  { key: 'CONTINUE_LIMIT', group: 'home', label: 'Карточек в «Продолжить просмотр»', type: 'range', min: 1, max: 12, step: 1, unit: '' },
++  { key: 'CONTINUE_MAX_DAYS', group: 'home', label: 'Убирать из «Продолжить» через (дней, 0 — никогда)', type: 'range', min: 0, max: 180, step: 5, unit: '' },
++  { key: 'CONTINUE_HIDE_COMPLETED', group: 'home', label: 'Не показывать в «Продолжить» досмотренное', type: 'toggle' },
++
++  // ---------- Трекер и плеер ----------
++  { key: 'AUTO_STATUS', group: 'tracker', label: 'Менять статус автоматически', type: 'toggle' },
++  { key: 'AUTO_MARK_PERCENT', group: 'tracker', label: 'Отмечать серию просмотренной на', type: 'range', min: 50, max: 100, step: 5, unit: '%' },
++  { key: 'AUTOPLAY_NEXT', group: 'tracker', label: 'Включать следующую серию (свои файлы)', type: 'toggle' },
++  { key: 'SEEK_STEP_SEC', group: 'tracker', label: 'Перемотка стрелками', type: 'range', min: 5, max: 60, step: 5, unit: ' сек' },
++];
++
++// Текущее значение пункта: сохранённое → значение из CONFIG → def
++export function valueOf(opt) {
++  const saved = getPrefs().custom?.[opt.key];
++  if (saved !== undefined) return saved;
++  if (opt.key in DEFAULTS) return DEFAULTS[opt.key];
++  return opt.def;
++}
++
++export function setOption(key, value) {
++  const custom = { ...(getPrefs().custom || {}), [key]: value };
++  setPref('custom', custom);
++  applyCustom();
++}
++
++export function resetCustom() {
++  setPref('custom', {});
++  Object.assign(CONFIG, DEFAULTS);
++  applyCustom();
++}
++
++// Применить всё: значения CONFIG и CSS-переменные
++export function applyCustom() {
++  const values = Object.fromEntries(OPTIONS.map((o) => [o.key, valueOf(o)]));
++
++  // 1. Пункты, совпадающие с CONFIG, просто перекрывают его
++  for (const o of OPTIONS) if (o.key in DEFAULTS) CONFIG[o.key] = values[o.key];
++
++  // 2. Внешний вид — через CSS-переменные (их список в styles/theme.css)
++  const root = document.documentElement;
++  root.dataset.theme = values.theme;
++  root.style.setProperty('--card-width', values.cardWidth + 'px');
++  root.style.setProperty('--radius', values.radius + 'px');
++  root.style.setProperty('--radius-sm', Math.round(values.radius * 0.66) + 'px');
++  root.style.setProperty('--sidebar-width', values.sidebarWidth + 'px');
++  root.style.zoom = values.uiScale / 100;
++  root.classList.toggle('no-anim', !values.animations);
++
++  const stats = document.getElementById('sidebar-stats');
++  if (stats) stats.style.display = values.SHOW_SIDEBAR_STATS ? '' : 'none';
++}
+diff -ruN -x node_modules -x changes-1.1.diff -x CHANGES-1.1.md src-orig/src/renderer/store.js tsuzuki/src/renderer/store.js
+--- src-orig/src/renderer/store.js	2026-11-02 19:20:36.627589244 +0300
++++ tsuzuki/src/renderer/store.js	2026-11-02 19:34:32.677702119 +0300
+@@ -19,6 +19,14 @@
+ //  }
+ // ============================================================
+ 
++// ------------------------------------------------------------
++//  ИЗМЕНЕНО В 1.1 (Claude, 02.11.2026):
++//  - ensureEntry: + franchise, shikiScore, airedDate, metaAt
++//  - getContinueWatching с настройками, hideContinue, clearContinue
++//  - importRates — общий импорт (MAL, AniList, Shikimori)
++//  - entriesMissingMeta / applyMeta — дозаполнение старых записей
++// ------------------------------------------------------------
++
+ import { CONFIG } from './config.js';
+ import { titleOf } from './utils.js';
+ 
+@@ -132,6 +140,11 @@
+     animeStatus: anime.status || prev?.animeStatus,
+     duration: anime.duration ?? prev?.duration ?? 0,
+     nextEpisodeAt: anime.nextEpisodeAt ?? prev?.nextEpisodeAt ?? null,
++    // для склейки сезонов и сравнения с оценками Shikimori
++    franchise: anime.franchise ?? prev?.franchise ?? null,
++    shikiScore: Number(anime.score) || prev?.shikiScore || 0,
++    airedDate: anime.airedOn?.date || prev?.airedDate || null,
++    metaAt: 'franchise' in anime ? now : prev?.metaAt || null, // когда сведения пришли с Shikimori
+   };
+   return state.library[id];
+ }
+@@ -142,6 +155,7 @@
+   const key = String(id);
+   state.online[key] = {
+     ...(state.online[key] || {}),
++    hidden: false, // снова открыл — снова показываем в «Продолжить просмотр»
+     ...patch,
+     at: new Date().toISOString(),
+   };
+@@ -150,15 +164,34 @@
+ 
+ export const getOnlineState = (id) => state.online[String(id)] || null;
+ 
+-// Последние открытые онлайн-серии — для блока «Продолжить просмотр».
+-export function getContinueWatching(limit = 6) {
++// Последние открытые серии — для блока «Продолжить просмотр».
++// Что прятать, настраивается в CONFIG (и в «Настройках» → «Главная»).
++export function getContinueWatching(limit = CONFIG.CONTINUE_LIMIT) {
++  const maxAge = CONFIG.CONTINUE_MAX_DAYS > 0 ? CONFIG.CONTINUE_MAX_DAYS * 86400000 : Infinity;
++  const now = Date.now();
+   return Object.entries(state.online || {})
+     .map(([id, v]) => ({ id, ...v }))
+-    .filter((v) => v && v.episode && v.title)
++    .filter((v) => v && v.episode && v.title && !v.hidden)
++    .filter((v) => now - new Date(v.at || 0).getTime() <= maxAge)
++    .filter((v) => !(CONFIG.CONTINUE_HIDE_COMPLETED && getEntry(v.id)?.status === 'completed'))
+     .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))
+     .slice(0, limit);
+ }
+ 
++// Убрать один тайтл из «Продолжить просмотр» (место, где остановился, не теряется)
++export function hideContinue(id) {
++  const v = state.online[String(id)];
++  if (!v) return;
++  v.hidden = true;
++  persist();
++}
++
++// Убрать всё из «Продолжить просмотр»
++export function clearContinue() {
++  for (const v of Object.values(state.online || {})) if (v) v.hidden = true;
++  persist();
++}
++
+ // Обновить сведения о вышедших сериях, не трогая статус и отметки.
+ // Возвращает true, если серий стало больше, чем было записано.
+ export function updateAired(anime) {
+@@ -325,21 +358,48 @@
+   return true;
+ }
+ 
+-// rates — из api/shikimori.js → fetchUserList. Shikimori хранит только число серий,
+-// поэтому отмечаем серии с 1 по это число. «rewatching» считаем как «Смотрю».
+-export function importShikimoriRates(rates) {
+-  let added = 0;
++// Импорт списка из любой программы. rates — массив
++// { anime (объект Shikimori), status, episodes, score, updatedAt }.
++// Отмечаем серии с 1 по episodes. «rewatching» считаем как «Смотрю».
++// mode: 'overwrite' — перезаписать совпадающие тайтлы, 'skip' — не трогать то, что уже есть.
++export function importRates(rates, mode = 'overwrite') {
++  let added = 0, skipped = 0;
++  const allowed = new Set(CONFIG.STATUSES.map((s) => s.id));
+   for (const r of rates) {
+     if (!r.anime) continue;
++    if (mode === 'skip' && getEntry(r.anime.id)?.status) { skipped++; continue; }
+     const e = ensureEntry(r.anime);
+-    e.status = r.status === 'rewatching' ? 'watching' : r.status;
+-    e.watched = range(1, r.episodes || 0);
+-    if (r.score) e.score = r.score;
++    const status = r.status === 'rewatching' ? 'watching' : r.status;
++    e.status = allowed.has(status) ? status : 'planned';
++    const eps = Math.max(0, Number(r.episodes) || 0);
++    e.watched = range(1, e.episodes ? Math.min(eps, e.episodes) : eps);
++    if (r.score) e.score = Math.round(Number(r.score)) || 0;
+     e.updatedAt = r.updatedAt || new Date().toISOString();
+     added++;
+   }
+   persist();
+-  return added;
++  return { added, skipped };
++}
++
++// Старое имя — оставлено, чтобы не ломать вызовы
++export const importShikimoriRates = (rates) => importRates(rates).added;
++
++// ---------- Дозаполнение сведений у старых записей ----------
++// Записи, у которых нет франшизы или оценки Shikimori (созданы до обновления)
++export const entriesMissingMeta = () =>
++  Object.values(state.library).filter((e) => !e.manual && e.id > 0 && !e.metaAt);
++
++// list — короткие объекты Shikimori (getAnimesByIds)
++export function applyMeta(list) {
++  for (const a of list) {
++    const e = getEntry(a.id);
++    if (!e) continue;
++    e.franchise = a.franchise || null;
++    e.shikiScore = Number(a.score) || 0;
++    e.airedDate = a.airedOn?.date || e.airedDate || null;
++    e.metaAt = new Date().toISOString();
++  }
++  persist();
+ }
+ 
+ // ---------- История: удаление ----------
+diff -ruN -x node_modules -x changes-1.1.diff -x CHANGES-1.1.md src-orig/src/renderer/styles/app.css tsuzuki/src/renderer/styles/app.css
+--- src-orig/src/renderer/styles/app.css	2026-11-02 19:20:36.627915603 +0300
++++ tsuzuki/src/renderer/styles/app.css	2026-11-02 19:33:16.971878788 +0300
+@@ -4,6 +4,12 @@
+    карточка аниме → библиотека → плеер → сервисы/настройки
+    ============================================================ */
+ 
++/* ------------------------------------------------------------
++   ИЗМЕНЕНО В 1.1 (Claude, 02.11.2026):
++   - стили: стопка сезонов, «Сезоны и части», статистика Shikimori, чистка «Продолжить просмотр», раздел кастомизации
++   - бейдж оценки всегда с белым текстом (для светлой темы)
++   ------------------------------------------------------------ */
++
+ * { box-sizing: border-box; }
+ html, body { margin: 0; height: 100%; }
+ body {
+@@ -116,6 +122,15 @@
+   position: absolute; top: 8px; left: 8px; padding: 2px 7px; border-radius: 6px;
+   background: rgba(0,0,0,.72); font-size: 12px; font-weight: 600;
+ }
++.card-stack {
++  position: absolute; left: 8px; bottom: 10px; z-index: 1; padding: 3px 8px; border-radius: 6px;
++  background: rgba(0,0,0,.78); font-size: 11.5px; font-weight: 600; color: #fff;
++}
++/* «стопка»: под постером видны края ещё двух карточек */
++.card.stacked .card-poster { box-shadow: 5px -5px 0 -1px var(--panel-3), 10px -10px 0 -2px var(--panel-2); overflow: visible; }
++.card.stacked .card-poster img { border-radius: var(--radius); }
++.card.stacked:hover .card-poster img { transform: none; }
++.card-score { color: #fff; } /* бейдж всегда тёмный — текст белый в любой теме */
+ .card-score.mine { background: var(--accent); color: var(--accent-text); }
+ .card-badge {
+   position: absolute; top: 8px; right: 8px; width: 10px; height: 10px; border-radius: 50%;
+@@ -164,7 +179,7 @@
+ .section { padding: 8px 32px 10px; }
+ .section h2 { font: 600 17px var(--font-display); margin: 26px 0 12px; display: flex; align-items: center; gap: 12px; }
+ .section h2 .muted { font: 400 13px var(--font); }
+-.description { max-width: 900px; color: #cfd4dd; line-height: 1.65; white-space: pre-line; }
++.description { max-width: 900px; color: var(--text); line-height: 1.65; white-space: pre-line; }
+ 
+ .episodes { display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 6px; max-width: 1100px; }
+ .ep {
+@@ -353,7 +368,7 @@
+ .chart-bar-wrap { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; }
+ .chart-bar { width: 60%; max-width: 34px; background: var(--accent); border-radius: 4px 4px 0 0; min-height: 0; }
+ .chart-day { font-size: 11px; color: var(--text-3); }
+-.stats-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; max-width: 900px; margin-top: 20px; }
++.stats-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; max-width: 1200px; margin-top: 20px; }
+ .top-list, .status-list { display: flex; flex-direction: column; gap: 4px; }
+ .top-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+ .top-row:hover { background: var(--panel-2); }
+@@ -375,3 +390,54 @@
+ /* Галочка-переключатель (блокировка рекламы и т.п.) */
+ .check-row { display: inline-flex; align-items: center; gap: 10px; margin-top: 12px; cursor: pointer; color: var(--text); }
+ .check-row input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
++
++/* ---------- Продолжить просмотр: чистка ---------- */
++.block-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
++.block-head .btn { height: 28px; font-size: 12.5px; }
++.continue-card { position: relative; }
++.continue-hide {
++  position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%;
++  border: 0; background: var(--panel-3); color: var(--text-2); cursor: pointer; font-size: 14px; line-height: 1;
++  opacity: 0; transition: opacity .15s;
++}
++.continue-card:hover .continue-hide { opacity: 1; }
++.continue-hide:hover { color: var(--text); background: var(--bad); }
++
++/* ---------- Сезоны франшизы ---------- */
++.seasons { display: flex; gap: 14px; overflow-x: auto; padding: 4px 2px 10px; }
++.season { position: relative; width: 128px; flex-shrink: 0; cursor: pointer; }
++.season img, .season-ph { width: 128px; aspect-ratio: 2/3; object-fit: cover; border-radius: var(--radius-sm); background: var(--panel); border: 2px solid transparent; }
++.season:hover img { border-color: var(--text-3); }
++.season.current img, .season.current .season-ph { border-color: var(--accent); }
++.season-num {
++  position: absolute; top: 6px; left: 6px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 6px;
++  background: rgba(0,0,0,.75); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center;
++}
++.season .card-badge { top: 8px; right: 8px; }
++.season-title { margin-top: 6px; font-size: 12.5px; font-weight: 600; line-height: 1.3;
++  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
++.season.current .season-title { color: var(--accent); }
++.season-meta { font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
++
++/* ---------- Статистика Shikimori ---------- */
++.shiki-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; max-width: 1100px; }
++.score-bars, .status-bars { display: flex; flex-direction: column; gap: 6px; }
++.score-row { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
++.score-n { width: 18px; text-align: right; font-weight: 700; color: var(--text-2); }
++.status-n { width: 110px; color: var(--text-2); }
++.score-track { flex: 1; height: 10px; background: var(--panel-2); border-radius: 5px; overflow: hidden; }
++.score-fill { height: 100%; background: var(--warn); border-radius: 5px; }
++.score-row.mine .score-fill { background: var(--accent); }
++.score-row.mine .score-n { color: var(--accent); }
++.score-c { width: 64px; text-align: right; color: var(--text-3); }
++
++/* ---------- Настройки: внешний вид и поведение ---------- */
++.opt-group { border-top: 1px solid var(--line); padding: 12px 0 4px; }
++.opt-title { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-3); margin-bottom: 8px; }
++.opt-row { display: flex; align-items: center; gap: 12px; min-height: 36px; }
++.opt-row > span { flex: 1; color: var(--text-2); }
++.opt-row input[type="range"] { width: 200px; accent-color: var(--accent); }
++.opt-row .select { height: 32px; min-width: 200px; }
++.opt-val { width: 64px; text-align: right; font-size: 13px; }
++.opt-group .check-row { margin-top: 0; display: flex; align-items: center; gap: 10px; min-height: 32px; color: var(--text-2); cursor: pointer; }
++.opt-group .check-row input { accent-color: var(--accent); width: 16px; height: 16px; }
+diff -ruN -x node_modules -x changes-1.1.diff -x CHANGES-1.1.md src-orig/src/renderer/styles/theme.css tsuzuki/src/renderer/styles/theme.css
+--- src-orig/src/renderer/styles/theme.css	2026-11-02 19:20:36.627967625 +0300
++++ tsuzuki/src/renderer/styles/theme.css	2026-11-02 19:33:16.972138756 +0300
+@@ -4,6 +4,11 @@
+    Акцентный цвет можно также выбрать в «Настройках».
+    ============================================================ */
+ 
++/* ------------------------------------------------------------
++   ИЗМЕНЕНО В 1.1 (Claude, 02.11.2026):
++   - готовые темы oled, dusk, light и выключение анимаций
++   ------------------------------------------------------------ */
++
+ :root {
+   /* Фоны: от самого тёмного к светлому */
+   --bg: #0f1115;          /* фон приложения */
+@@ -35,3 +40,25 @@
+   --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+   --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+ }
++
++/* ============================================================
++   ГОТОВЫЕ ТЕМЫ (выбираются в «Настройках» → «Внешний вид»).
++   Хочешь свою — скопируй блок, поменяй имя и цвета,
++   и добавь название в THEMES в файле custom.js.
++   ============================================================ */
++:root[data-theme="oled"] {
++  --bg: #000000; --bg-side: #000000; --panel: #0d0e11; --panel-2: #16181d; --panel-3: #22252c; --line: #1a1c21;
++}
++:root[data-theme="dusk"] {
++  --bg: #141a26; --bg-side: #10151f; --panel: #1b2333; --panel-2: #232d40; --panel-3: #2e3a52; --line: #26304a;
++  --text: #e6ecf8; --text-2: #9fb0cc; --text-3: #6a7a96;
++}
++:root[data-theme="light"] {
++  --bg: #f4f5f8; --bg-side: #ffffff; --panel: #ffffff; --panel-2: #eceef3; --panel-3: #dfe2ea; --line: #e1e4ea;
++  --text: #15181e; --text-2: #4b5563; --text-3: #8a93a3;
++}
++:root[data-theme="light"] .description { color: var(--text-2); }
++:root[data-theme="light"] .hero-bg { opacity: 0.18; }
++
++/* Выключенные анимации */
++.no-anim *, .no-anim *::before, .no-anim *::after { transition: none !important; animation-duration: 0s !important; }
+diff -ruN -x node_modules -x changes-1.1.diff -x CHANGES-1.1.md src-orig/src/renderer/views/anime.js tsuzuki/src/renderer/views/anime.js
+--- src-orig/src/renderer/views/anime.js	2026-11-02 19:20:36.628047599 +0300
++++ tsuzuki/src/renderer/views/anime.js	2026-11-02 19:33:16.972501596 +0300
+@@ -2,8 +2,15 @@
+ //  СТРАНИЦА АНИМЕ: описание, статус в списке, серии, где смотреть.
+ // ============================================================
+ 
++// ------------------------------------------------------------
++//  ИЗМЕНЕНО В 1.1 (Claude, 02.11.2026):
++//  - блок «Сезоны и части» с переключателем OVA/спешлов
++//  - блок «Статистика Shikimori»
++// ------------------------------------------------------------
++
+ import { CONFIG } from '../config.js';
+-import { getAnime } from '../api/shikimori.js';
++import { getAnime, getFranchise, votesOf } from '../api/shikimori.js';
++import { shortNumber } from '../components/card.js';
+ import * as store from '../store.js';
+ import {
+   esc, titleOf, kindLabel, animeStatusLabel, cleanDescription, airedEpisodes,
+@@ -27,6 +34,8 @@
+   let full = !!manual;
+   let files = [];            // видео в привязанной папке
+   let fileByEp = new Map();  // номер серии → индекс файла
++  let seasons = [];          // все сезоны этой франшизы (Shikimori)
++  let showExtras = false;    // показывать ли OVA, спешлы и рекапы в «Сезонах»
+ 
+   root.scrollTop = 0;
+   if (!anime) root.innerHTML = '<div class="spinner"></div>';
+@@ -50,6 +59,13 @@
+   await scanFolder();
+   draw();
+ 
++  // Сезоны франшизы подгружаем отдельно — страница уже на экране
++  if (anime.franchise) {
++    getFranchise(anime.franchise)
++      .then((list) => { seasons = list; if (root.querySelector('.anime-page')) draw(); })
++      .catch(() => {});
++  }
++
+   async function scanFolder() {
+     const folder = store.getEntry(id)?.folder;
+     files = folder ? await window.api.listVideos(folder) : [];
+@@ -129,8 +145,10 @@
+         </div>
+ 
+         <div class="section">
++          ${seasonsHtml()}
+           ${episodesHtml(entry)}
+           ${watchHtml(entry)}
++          ${shikiStatsHtml()}
+           ${trailersHtml()}
+           ${anime.description ? `<h2>Описание</h2><div class="description">${esc(cleanDescription(anime.description))}</div>` : ''}
+           ${relatedHtml()}
+@@ -206,6 +224,79 @@
+       </div>`;
+   }
+ 
++  // Все сезоны франшизы по порядку выхода; точка — твой статус
++  function seasonsHtml() {
++    if (seasons.length < 2) return '';
++    // Основное — сериалы, фильмы и ONA; остальное (OVA, спешлы, рекапы) по кнопке
++    const MAIN = ['tv', 'movie', 'ona'];
++    const main = seasons.filter((a) => MAIN.includes(a.kind) || String(a.id) === String(id));
++    const extras = seasons.length - main.length;
++    const list = showExtras ? seasons : main;
++    if (list.length < 2 && !extras) return '';
++    return `<h2>Сезоны и части <span class="muted">по порядку выхода</span>
++        ${extras ? `<button class="btn btn-sm btn-ghost" data-act="extras">${showExtras ? 'Только основное' : `+ OVA и спешлы (${extras})`}</button>` : ''}</h2>
++      <div class="seasons">
++        ${list.map((a, i) => {
++          const e = store.getEntry(a.id);
++          const st = e?.status ? CONFIG.STATUSES.find((x) => x.id === e.status) : null;
++          const current = String(a.id) === String(id);
++          return `
++            <div class="season ${current ? 'current' : ''}" data-goto="${a.id}" title="${esc(titleOf(a))}">
++              ${a.poster?.mainUrl ? `<img src="${esc(a.poster.mainUrl)}" loading="lazy" alt="">` : '<div class="season-ph"></div>'}
++              <div class="season-num">${i + 1}</div>
++              ${st ? `<span class="card-badge" style="background:${st.color}" title="${esc(st.label)}"></span>` : ''}
++              <div class="season-title">${esc(titleOf(a))}</div>
++              <div class="season-meta">${esc([kindLabel(a.kind), a.airedOn?.year, a.episodes ? a.episodes + ' эп.' : ''].filter(Boolean).join(' · '))}</div>
++            </div>`;
++        }).join('')}
++      </div>`;
++  }
++
++  // Настоящая статистика с Shikimori: как оценивают и сколько людей смотрит
++  function shikiStatsHtml() {
++    const scores = (anime.scoresStats || []).filter((x) => x.score);
++    const statuses = anime.statusesStats || [];
++    if (!scores.length && !statuses.length) return '';
++    const votes = votesOf(anime);
++    const maxCount = Math.max(1, ...scores.map((x) => x.count));
++    const people = statuses.reduce((sum, x) => sum + x.count, 0);
++    const avg = votes ? scores.reduce((sum, x) => sum + x.score * x.count, 0) / votes : 0;
++    const STATUS_LABELS = { planned: 'Запланировали', watching: 'Смотрят', completed: 'Просмотрели', on_hold: 'Отложили', dropped: 'Бросили' };
++    const order = ['completed', 'watching', 'planned', 'on_hold', 'dropped'];
++    const mine = store.getEntry(id)?.score || 0;
++
++    return `<h2>Статистика Shikimori <span class="muted">${shortNumber(votes)} оценок · ${shortNumber(people)} в списках</span></h2>
++      <div class="shiki-stats">
++        <div class="box">
++          <h3>Оценки зрителей</h3>
++          <p>Средняя ${avg.toFixed(2)}${mine ? ` · твоя ${mine}` : ''}</p>
++          <div class="score-bars">
++            ${[...scores].sort((a, b) => b.score - a.score).map((x) => `
++              <div class="score-row ${x.score === mine ? 'mine' : ''}">
++                <span class="score-n">${x.score}</span>
++                <div class="score-track"><div class="score-fill" style="width:${(x.count / maxCount) * 100}%"></div></div>
++                <span class="score-c">${shortNumber(x.count)}</span>
++              </div>`).join('')}
++          </div>
++        </div>
++        <div class="box">
++          <h3>В списках у людей</h3>
++          <p>Сколько пользователей Shikimori добавили тайтл к себе</p>
++          <div class="status-bars">
++            ${order.map((k) => statuses.find((x) => x.status === k)).filter(Boolean).map((x) => {
++              const st = CONFIG.STATUSES.find((s) => s.id === x.status);
++              return `
++                <div class="score-row">
++                  <span class="status-n">${STATUS_LABELS[x.status] || x.status}</span>
++                  <div class="score-track"><div class="score-fill" style="width:${people ? (x.count / people) * 100 : 0}%;background:${st?.color || 'var(--accent)'}"></div></div>
++                  <span class="score-c">${people ? Math.round((x.count / people) * 100) : 0}%</span>
++                </div>`;
++            }).join('')}
++          </div>
++        </div>
++      </div>`;
++  }
++
+   function trailersHtml() {
+     const vids = (anime.videos || [])
+       .filter((v) => VIDEO_KINDS[v.kind] && /youtu\.?be/.test(v.url))
+@@ -270,6 +361,7 @@
+ 
+       switch (d.act) {
+         case 'back': history.back(); break;
++        case 'extras': showExtras = !showExtras; draw(); break;
+         case 'play': openPlayer(store.nextEpisode(id)); break;
+         case 'online': location.hash = `#/watch/${id}`; break;
+         case 'edit': location.hash = `#/add/${id}`; break;
+diff -ruN -x node_modules -x changes-1.1.diff -x CHANGES-1.1.md src-orig/src/renderer/views/catalog.js tsuzuki/src/renderer/views/catalog.js
+--- src-orig/src/renderer/views/catalog.js	2026-11-02 19:20:36.628152629 +0300
++++ tsuzuki/src/renderer/views/catalog.js	2026-11-02 19:34:32.678038762 +0300
+@@ -2,18 +2,25 @@
+ //  КАТАЛОГ: поиск и фильтры по базе Shikimori.
+ // ============================================================
+ 
++// ------------------------------------------------------------
++//  ИЗМЕНЕНО В 1.1 (Claude, 02.11.2026):
++//  - склейка сезонов (stackItems)
++//  - крестик и «Очистить» в «Продолжить просмотр»
++//  - догрузка, если после чистки страница почти пустая
++// ------------------------------------------------------------
++
+ import { CONFIG } from '../config.js';
+ import { searchAnimes, getGenres } from '../api/shikimori.js';
+ import { cardHtml } from '../components/card.js';
+ import { esc, debounce, toast } from '../utils.js';
+-import { getContinueWatching, getPrefs } from '../store.js';
++import { getContinueWatching, hideContinue, clearContinue, getPrefs } from '../store.js';
+ import { getNews, clearNews } from '../api/notifications.js';
+ import { rememberAnime } from './anime.js';
+ 
+ // Состояние живёт между переходами: вернулся из карточки — поиск и прокрутка на месте
+ const state = {
+   search: '',
+-  order: CONFIG.DEFAULT_ORDER,
++  order: null,      // null — берём CONFIG.DEFAULT_ORDER (его можно поменять в «Настройках»)
+   kind: '',
+   status: '',
+   genre: '',
+@@ -25,6 +32,7 @@
+   done: false,      // больше страниц нет
+   loading: false,
+   scroll: 0,
++  franchises: new Map(), // франшиза → { id карточки-представителя, сколько ещё сезонов спрятано }
+ };
+ 
+ const options = (map, selected, emptyLabel) =>
+@@ -43,6 +51,7 @@
+ };
+ 
+ export async function render(root) {
++  if (!state.order) state.order = CONFIG.DEFAULT_ORDER;
+   root.innerHTML = `
+     <div class="page">
+       <h1 class="page-title">Каталог</h1>
+@@ -71,7 +80,7 @@
+ 
+   // ---------- Новые серии ----------
+   function drawNews() {
+-    const news = getNews();
++    const news = CONFIG.SHOW_NEWS ? getNews() : [];
+     if (!news.length) {
+       newsSlot.innerHTML = '';
+       return;
+@@ -94,14 +103,17 @@
+ 
+   // ---------- Продолжить просмотр ----------
+   function drawContinue() {
+-    const items = getContinueWatching(6);
++    const items = CONFIG.SHOW_CONTINUE ? getContinueWatching() : [];
+     if (!items.length) {
+       continueSlot.innerHTML = '';
+       return;
+     }
+     continueSlot.innerHTML = `
+       <div class="continue-block">
+-        <h2 class="block-title">Продолжить просмотр</h2>
++        <div class="block-head">
++          <h2 class="block-title">Продолжить просмотр</h2>
++          <button class="btn btn-ghost" data-continue-clear title="Убрать все карточки (место, где остановился, сохранится)">Очистить</button>
++        </div>
+         <div class="continue-row">
+           ${items.map((item) => {
+             const href = `#/watch/${encodeURIComponent(item.id)}/${encodeURIComponent(item.tr || '')}/${item.season || 1}/${item.episode}`;
+@@ -120,6 +132,7 @@
+                   <div class="continue-meta">${esc(meta)}</div>
+                 </div>
+                 <span class="continue-play">▶</span>
++                <button class="continue-hide" data-continue-hide="${esc(item.id)}" title="Убрать из списка">×</button>
+               </div>`;
+           }).join('')}
+         </div>
+@@ -148,10 +161,39 @@
+     })
+     .catch(() => {});
+ 
++  // Склейка сезонов: из одной франшизы показываем первую попавшуюся карточку,
++  // остальные прячем и пишем на ней «+N сезонов».
++  function stackItems(items) {
++    if (!CONFIG.STACK_FRANCHISES) return items.map((a) => ({ anime: a, stack: 0 }));
++    const out = [];
++    for (const a of items) {
++      const f = a.franchise;
++      if (!f) { out.push({ anime: a, stack: 0 }); continue; }
++      const seen = state.franchises.get(f);
++      if (seen) { seen.stack++; continue; }
++      const rec = { anime: a, stack: 0 };
++      state.franchises.set(f, rec);
++      out.push(rec);
++    }
++    return out;
++  }
++
+   function drawItems(items, append) {
+-    const html = items.map((a) => cardHtml(a)).join('');
+-    if (append) grid.insertAdjacentHTML('beforeend', html);
+-    else grid.innerHTML = html;
++    const recs = append ? stackItems(items) : rebuildStacks(items);
++    const html = recs.map((r) => cardHtml(r.anime, { stack: r.stack })).join('');
++    if (append) {
++      grid.insertAdjacentHTML('beforeend', html);
++      // у старых карточек могло прибавиться спрятанных сезонов — перерисуем их значки
++      for (const rec of state.franchises.values()) {
++        const el = grid.querySelector(`[data-open="${rec.anime.id}"]`);
++        if (el && rec.stack) el.outerHTML = cardHtml(rec.anime, { stack: rec.stack });
++      }
++    } else grid.innerHTML = html;
++  }
++
++  function rebuildStacks(items) {
++    state.franchises = new Map();
++    return stackItems(items);
+   }
+ 
+   function drawBelow() {
+@@ -161,12 +203,15 @@
+     else below.innerHTML = `<div class="load-more"><button class="btn" id="more">Показать ещё</button></div>`;
+   }
+ 
++  let autoLoads = 0;
+   async function load(reset) {
+     if (state.loading) return;
++    if (reset) autoLoads = 0;
+     if (reset) {
+       state.page = 1;
+       state.items = [];
+       state.done = false;
++      state.franchises = new Map();
+       grid.innerHTML = '';
+     }
+     state.loading = true;
+@@ -185,9 +230,14 @@
+       });
+       items.forEach(rememberAnime);
+       state.items.push(...items);
+-      state.done = items.length < CONFIG.PAGE_SIZE;
++      // конец списка определяем по тому, сколько прислал сервер (до нашей чистки)
++      state.done = (items.rawCount ?? items.length) < CONFIG.PAGE_SIZE;
+       state.page++;
+       drawItems(items, !reset);
++      // после чистки страница могла почти опустеть — сразу догружаем следующую
++      // (не больше 5 раз подряд, чтобы не засыпать Shikimori запросами)
++      autoLoads = grid.children.length < 12 ? autoLoads + 1 : 0;
++      if (!state.done && autoLoads > 0 && autoLoads <= 5) setTimeout(() => load(false), 350);
+     } catch (err) {
+       toast('Не удалось загрузить каталог: ' + err.message, 'error');
+     } finally {
+@@ -225,6 +275,19 @@
+       location.hash = `#/anime/${newsItem.dataset.newsOpen}`;
+       return;
+     }
++    const hide = e.target.closest('[data-continue-hide]');
++    if (hide) {
++      e.stopPropagation();
++      hideContinue(hide.dataset.continueHide);
++      drawContinue();
++      return;
++    }
++    if (e.target.closest('[data-continue-clear]')) {
++      clearContinue();
++      drawContinue();
++      toast('«Продолжить просмотр» очищен', 'ok');
++      return;
++    }
+     const cont = e.target.closest('[data-continue]');
+     if (cont) {
+       location.hash = cont.dataset.continue;
+@@ -265,6 +328,8 @@
+ // (например, после включения/выключения «Показывать 18+»).
+ export function resetCatalog() {
+   state.items = [];
++  state.franchises = new Map();
++  state.order = null;
+   state.page = 1;
+   state.done = false;
+ }
+diff -ruN -x node_modules -x changes-1.1.diff -x CHANGES-1.1.md src-orig/src/renderer/views/library.js tsuzuki/src/renderer/views/library.js
+--- src-orig/src/renderer/views/library.js	2026-11-02 19:20:36.628217067 +0300
++++ tsuzuki/src/renderer/views/library.js	2026-11-02 19:33:16.973061777 +0300
+@@ -2,6 +2,11 @@
+ //  МОЯ БИБЛИОТЕКА: вкладки по статусам.
+ // ============================================================
+ 
++// ------------------------------------------------------------
++//  ИЗМЕНЕНО В 1.1 (Claude, 02.11.2026):
++//  - склейка сезонов (stack)
++// ------------------------------------------------------------
++
+ import { CONFIG } from '../config.js';
+ import * as store from '../store.js';
+ import { cardHtml } from '../components/card.js';
+@@ -39,7 +44,7 @@
+           <a class="btn btn-accent" href="#/add">＋ Своя запись</a>
+         </div>
+         ${items.length
+-          ? `<div class="grid">${items.map((e) => cardHtml(e, { showPlus: status === 'watching' })).join('')}</div>`
++          ? `<div class="grid">${stack(items).map(({ e, more }) => cardHtml(e, { showPlus: status === 'watching', stack: more })).join('')}</div>`
+           : `<div class="empty"><div class="empty-big">▤</div>Здесь пока пусто.<br>
+              <span class="faint">Найди аниме в каталоге и выбери статус на его странице.</span></div>`}
+       </div>`;
+@@ -74,6 +79,23 @@
+   return store.onChange(draw);
+ }
+ 
++// Склейка сезонов: из записей одной франшизы показываем самую свежую,
++// остальные — значком «+N сезонов» (полный список — на странице тайтла)
++function stack(items) {
++  if (!CONFIG.STACK_FRANCHISES) return items.map((e) => ({ e, more: 0 }));
++  const groups = new Map();
++  const out = [];
++  for (const e of items) { // items уже отсортированы: свежие сверху
++    if (!e.franchise) { out.push({ e, more: 0 }); continue; }
++    const g = groups.get(e.franchise);
++    if (g) { g.more++; continue; }
++    const rec = { e, more: 0 };
++    groups.set(e.franchise, rec);
++    out.push(rec);
++  }
++  return out;
++}
++
+ // Запись библиотеки → объект «как с Shikimori», чтобы store.ensureEntry её понял
+ function entryAsAnime(e) {
+   return {
+diff -ruN -x node_modules -x changes-1.1.diff -x CHANGES-1.1.md src-orig/src/renderer/views/settings.js tsuzuki/src/renderer/views/settings.js
+--- src-orig/src/renderer/views/settings.js	2026-11-02 19:20:36.628388136 +0300
++++ tsuzuki/src/renderer/views/settings.js	2026-11-02 19:34:32.678673257 +0300
+@@ -2,8 +2,16 @@
+ //  НАСТРОЙКИ: цвет, резервные копии, импорт с Shikimori.
+ // ============================================================
+ 
++// ------------------------------------------------------------
++//  ИЗМЕНЕНО В 1.1 (Claude, 02.11.2026):
++//  - раздел «Внешний вид и поведение» (из custom.js)
++//  - импорт из MAL-файла и AniList
++// ------------------------------------------------------------
++
+ import * as store from '../store.js';
+ import { fetchUserList } from '../api/shikimori.js';
++import { parseMalXml, fetchAniList, applyImport } from '../api/importers.js';
++import { OPTIONS, GROUPS, valueOf, setOption, resetCustom } from '../custom.js';
+ import { kodikError } from '../api/kodik.js';
+ import { ACCENTS, applyAccent } from '../theme.js';
+ import { esc, toast } from '../utils.js';
+@@ -30,6 +38,8 @@
+             </div>
+           </div>
+ 
++          ${customHtml()}
++
+           <div class="box">
+             <h3>Каталог</h3>
+             <p>Shikimori по умолчанию скрывает тайтлы с рейтингом 18+ (R+ и выше). Включи, если хочешь видеть их в поиске и каталоге.</p>
+@@ -37,6 +47,19 @@
+           </div>
+ 
+           <div class="box">
++            <h3>Импорт из других программ</h3>
++            <p><b>Файл в формате MyAnimeList</b> (.xml или .xml.gz) — экспорт из MyAnimeList, Shikimori, Kitsu и других программ, которые умеют «экспорт в MAL».
++               <b>AniList</b> — просто ник, список должен быть открытым.</p>
++            <div class="row">
++              <button class="btn" data-act="import-mal">Выбрать файл MAL…</button>
++              <input class="input" id="anilist-nick" placeholder="Ник на AniList" style="flex:1">
++              <button class="btn" data-act="import-anilist">Импорт с AniList</button>
++            </div>
++            <label class="check-row" style="margin-top:10px"><input type="checkbox" id="import-skip"> <span>Не трогать тайтлы, которые уже есть в моём списке</span></label>
++            <p id="import2-status" style="margin:10px 0 0"></p>
++          </div>
++
++          <div class="box">
+             <h3>Импорт списка с Shikimori</h3>
+             <p>Введи свой ник — заберём статусы, оценки и число просмотренных серий. Список в профиле должен быть открытым. Записи с теми же тайтлами перезапишутся.</p>
+             <div class="row">
+@@ -90,6 +113,8 @@
+         if (el) el.textContent = `Заблокировано запросов: ${s.blocked} · доменов в списке: ${s.domains}`;
+       })
+       .catch(() => {});
++    page.addEventListener('input', (e) => { if (e.target.dataset.opt) onOption(e.target, true); });
++    page.addEventListener('change', (e) => { if (e.target.dataset.opt) onOption(e.target, false); });
+     page.addEventListener('click', async (e) => {
+       if (e.target.id === 'show-adult') {
+         const on = e.target.checked;
+@@ -119,6 +144,11 @@
+           store.clearAll(); applyAccent(); draw(); toast('Всё очищено');
+         }
+         if (act === 'import-shiki') await importShiki(page);
++        if (act === 'import-mal') await importOther(page, 'mal');
++        if (act === 'import-anilist') await importOther(page, 'anilist');
++        if (act === 'reset-custom' && confirm('Вернуть все настройки внешнего вида и поведения к стандартным?')) {
++          resetCustom(); resetCatalog(); draw(); toast('Настройки сброшены', 'ok');
++        }
+         if (act === 'save-kodik') saveKodik(page);
+         if (act === 'check-kodik') await checkKodik(page);
+       } catch (err) {
+@@ -155,6 +185,80 @@
+     }
+   }
+ 
++  // ---------- Внешний вид и поведение (пункты берутся из custom.js → OPTIONS) ----------
++  function customHtml() {
++    const control = (o) => {
++      const v = valueOf(o);
++      if (o.type === 'toggle') {
++        return `<label class="check-row"><input type="checkbox" data-opt="${o.key}" ${v ? 'checked' : ''}> <span>${esc(o.label)}</span></label>`;
++      }
++      if (o.type === 'select') {
++        const choices = typeof o.choices === 'function' ? o.choices() : o.choices;
++        return `<div class="opt-row"><span>${esc(o.label)}</span>
++          <select class="select" data-opt="${o.key}">${Object.entries(choices).map(([k, label]) =>
++            `<option value="${esc(k)}" ${k === v ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select></div>`;
++      }
++      return `<div class="opt-row"><span>${esc(o.label)}</span>
++        <input type="range" data-opt="${o.key}" min="${o.min}" max="${o.max}" step="${o.step}" value="${v}">
++        <b class="opt-val" data-val="${o.key}">${v}${o.unit || ''}</b></div>`;
++    };
++    return `
++      <div class="box">
++        <div class="block-head"><h3>Внешний вид и поведение</h3>
++          <button class="btn btn-sm btn-ghost" data-act="reset-custom">Сбросить</button></div>
++        <p>Меняется сразу. Свои пункты можно добавить в файле src/renderer/custom.js.</p>
++        ${Object.entries(GROUPS).map(([g, title]) => `
++          <div class="opt-group">
++            <div class="opt-title">${esc(title)}</div>
++            ${OPTIONS.filter((o) => o.group === g).map(control).join('')}
++          </div>`).join('')}
++      </div>`;
++  }
++
++  // Эти настройки влияют на выдачу каталога — после них каталог перезагрузится
++  const CATALOG_KEYS = ['STRICT_SEARCH', 'DEFAULT_ORDER', 'MIN_VOTES', 'PAGE_SIZE', 'STACK_FRANCHISES', 'HIDE_JUNK_KINDS', 'HIDE_NO_POSTER', 'HIDE_ANONS'];
++
++  function onOption(el, live) {
++    const key = el.dataset.opt;
++    const o = OPTIONS.find((x) => x.key === key);
++    const value = o.type === 'toggle' ? el.checked : o.type === 'range' ? Number(el.value) : el.value;
++    const label = root.querySelector(`[data-val="${key}"]`);
++    if (label) label.textContent = value + (o.unit || '');
++    if (live && o.type === 'range' && !['uiScale', 'cardWidth', 'radius', 'sidebarWidth'].includes(key)) return; // числа сохраняем, когда отпустил ползунок
++    setOption(key, value);
++    if (CATALOG_KEYS.includes(key)) resetCatalog();
++  }
++
++  // ---------- Импорт MAL / AniList ----------
++  async function importOther(page, kind) {
++    const status = page.querySelector('#import2-status');
++    const mode = page.querySelector('#import-skip').checked ? 'skip' : 'overwrite';
++    let rates, note = '';
++    if (kind === 'mal') {
++      const file = await window.api.openTextFile({ title: 'Файл экспорта в формате MyAnimeList', extensions: ['xml', 'gz'] });
++      if (!file) return;
++      rates = parseMalXml(file.text);
++      status.textContent = `${file.name}: найдено ${rates.length} тайтлов, загружаю сведения…`;
++    } else {
++      const nick = page.querySelector('#anilist-nick').value.trim();
++      if (!nick) return toast('Введи ник на AniList');
++      status.textContent = 'Загружаю список с AniList…';
++      const res = await fetchAniList(nick);
++      rates = res.rates;
++      if (res.noMal) note = ` ${res.noMal} шт. нет на Shikimori — пропущены.`;
++      status.textContent = `Найдено ${rates.length} тайтлов, загружаю сведения…`;
++    }
++    const r = await applyImport(rates, {
++      mode,
++      onProgress: (done, total) => (status.textContent = `Загружаю сведения с Shikimori: ${done} из ${total}…`),
++    });
++    status.textContent = `Готово: добавлено ${r.added}` +
++      (r.skipped ? `, оставлено как было ${r.skipped}` : '') +
++      (r.notFound ? `, не найдено на Shikimori ${r.notFound}` : '') +
++      '.' + note;
++    toast(`Импортировано ${r.added} тайтлов`, 'ok');
++  }
++
+   async function importShiki(page) {
+     const nick = page.querySelector('#nick').value.trim();
+     if (!nick) return toast('Введи ник');
+diff -ruN -x node_modules -x changes-1.1.diff -x CHANGES-1.1.md src-orig/src/renderer/views/stats.js tsuzuki/src/renderer/views/stats.js
+--- src-orig/src/renderer/views/stats.js	2026-11-02 19:20:36.628422548 +0300
++++ tsuzuki/src/renderer/views/stats.js	2026-11-02 19:33:16.973623343 +0300
+@@ -3,6 +3,11 @@
+ //  Считаем по истории и отметкам в библиотеке.
+ // ============================================================
+ 
++// ------------------------------------------------------------
++//  ИЗМЕНЕНО В 1.1 (Claude, 02.11.2026):
++//  - «Твои оценки и Shikimori» и «Где ты не согласен с большинством»
++// ------------------------------------------------------------
++
+ import { CONFIG } from '../config.js';
+ import * as store from '../store.js';
+ import { esc } from '../utils.js';
+@@ -84,6 +89,18 @@
+ 
+     const statusCounts = store.countByStatus();
+ 
++    // Сравнение твоих оценок с оценками Shikimori (shikiScore дозаполняется при запуске)
++    const rated = entries.filter((e) => e.score > 0 && e.shikiScore > 0);
++    const myAvg = rated.length ? rated.reduce((s, e) => s + e.score, 0) / rated.length : 0;
++    const theirAvg = rated.length ? rated.reduce((s, e) => s + e.shikiScore, 0) / rated.length : 0;
++    const diff = myAvg - theirAvg;
++    const disagreements = [...rated]
++      .map((e) => ({ e, d: e.score - e.shikiScore }))
++      .sort((a, b) => Math.abs(b.d) - Math.abs(a.d))
++      .slice(0, 6);
++    const myScores = Array.from({ length: 10 }, (_, i) => entries.filter((e) => e.score === 10 - i).length);
++    const maxMine = Math.max(1, ...myScores);
++
+     root.innerHTML = `
+       <div class="page">
+         <h1 class="page-title">Статистика</h1>
+@@ -139,6 +156,36 @@
+           </div>
+ 
+           <div class="box">
++            <h3>Твои оценки и Shikimori</h3>
++            ${rated.length
++              ? `<p>Оценено тобой: ${rated.length}. Твоя средняя <b>${myAvg.toFixed(2)}</b>, у Shikimori по этим же тайтлам <b>${theirAvg.toFixed(2)}</b> —
++                 ${Math.abs(diff) < 0.15 ? 'оцениваешь как большинство.' : diff > 0 ? `ты щедрее на ${diff.toFixed(2)}.` : `ты строже на ${Math.abs(diff).toFixed(2)}.`}</p>
++                 <div class="score-bars">
++                   ${myScores.map((c, i) => `
++                     <div class="score-row">
++                       <span class="score-n">${10 - i}</span>
++                       <div class="score-track"><div class="score-fill" style="width:${(c / maxMine) * 100}%;background:var(--accent)"></div></div>
++                       <span class="score-c">${c}</span>
++                     </div>`).join('')}
++                 </div>`
++              : '<p>Поставь оценки тайтлам из списка — здесь появится сравнение с оценками зрителей Shikimori.</p>'}
++          </div>
++
++          <div class="box">
++            <h3>Где ты не согласен с большинством</h3>
++            ${disagreements.length
++              ? `<div class="top-list">
++                  ${disagreements.map(({ e, d }) => `
++                    <div class="top-row" data-open="${esc(e.id)}">
++                      <span class="top-title">${esc(e.title)}</span>
++                      <span class="top-count">ты ${e.score} · все ${e.shikiScore.toFixed(1)}
++                        <b style="color:${d > 0 ? 'var(--good)' : 'var(--bad)'}">${d > 0 ? '+' : ''}${d.toFixed(1)}</b></span>
++                    </div>`).join('')}
++                </div>`
++              : '<p>Пока не с чем сравнивать.</p>'}
++          </div>
++
++          <div class="box">
+             <h3>По статусам</h3>
+             <div class="status-list">
+               ${CONFIG.STATUSES.map((s) => `
