@@ -53,6 +53,119 @@
   var seq = 0;
   var lastUpdate = { status: 'idle' };
 
+  // ---------- Онлайн-просмотр Kodik (ДОБАВЛЕНО В 1.6.4) ----------
+  // На ПК запросы к Kodik делает главный процесс. На Android то же самое идёт
+  // через Java-мост (NativeBridge.request), поэтому CORS не мешает.
+  // Токен: свой из «Настроек» → сохранённый публичный → подбор из AnimeParsers.
+  var KODIK_API = 'https://kodik-api.com';
+  var KODIK_TOKENS_URL = 'https://raw.githubusercontent.com/YaNesyTortiK/AnimeParsers/refs/heads/main/kdk_tokns/tokens.json';
+  var KODIK_CACHE_KEY = 'tsuzuki.kodik.token';
+  var KODIK_UA = 'Tsuzuki/1.6.4 (anime tracker)';
+
+  function b64utf8(s) {
+    try {
+      var binary = atob(String(s));
+      var bytes = new Uint8Array(binary.length);
+      for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return new TextDecoder('utf-8').decode(bytes);
+    } catch (e) {
+      return '';
+    }
+  }
+
+  // Токены в AnimeParsers зашифрованы: две половины в base64, каждая перевёрнута
+  function decodeKodikToken(enc) {
+    var mid = Math.floor(enc.length / 2);
+    var tail = b64utf8(enc.slice(0, mid).split('').reverse().join(''));
+    var head = b64utf8(enc.slice(mid).split('').reverse().join(''));
+    return head + tail;
+  }
+
+  function readKodikCache() {
+    try {
+      var raw = localStorage.getItem(KODIK_CACHE_KEY);
+      if (!raw) return null;
+      var j = JSON.parse(raw);
+      if (!j || !j.token) return null;
+      if (Date.now() - Number(j.at || 0) > 12 * 3600 * 1000) return null;
+      return j;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveKodikCache(token) {
+    try { localStorage.setItem(KODIK_CACHE_KEY, JSON.stringify({ token: token, at: Date.now() })); } catch (e) { /* ignore */ }
+  }
+
+  function clearKodikCache() {
+    try { localStorage.removeItem(KODIK_CACHE_KEY); } catch (e) { /* ignore */ }
+  }
+
+  async function kodikRequest(path, params) {
+    var url = KODIK_API + path;
+    var query = [];
+    for (var k in params) {
+      if (!Object.prototype.hasOwnProperty.call(params, k)) continue;
+      var v = params[k];
+      if (v === undefined || v === null || v === '') continue;
+      query.push(encodeURIComponent(k) + '=' + encodeURIComponent(String(v)));
+    }
+    if (query.length) url += '?' + query.join('&');
+    var res = await http('GET', url, { 'User-Agent': KODIK_UA, Accept: 'application/json' }, '');
+    var data = null;
+    try { data = JSON.parse(res.text || 'null'); } catch (e) { data = null; }
+    if (res.status >= 400 || (data && data.error)) {
+      throw new Error((data && data.error) || ('Kodik ответил ' + res.status + ': ' + String(res.text || '').slice(0, 200)));
+    }
+    return data;
+  }
+
+  async function fetchPublicKodikToken() {
+    var res = await http('GET', KODIK_TOKENS_URL, { 'User-Agent': KODIK_UA, Accept: 'application/json' }, '');
+    if (res.status >= 400) throw new Error('Не удалось получить список публичных токенов (HTTP ' + res.status + ')');
+    var list = {};
+    try { list = JSON.parse(res.text || '{}'); } catch (e) { list = {}; }
+    var groups = ['stable', 'unstable'];
+    for (var gi = 0; gi < groups.length; gi++) {
+      var arr = list[groups[gi]] || [];
+      for (var i = 0; i < arr.length; i++) {
+        var token = '';
+        try { token = decodeKodikToken(String(arr[i].tokn || '')); } catch (e) { token = ''; }
+        if (!token) continue;
+        try {
+          await kodikRequest('/translations', { token: token });
+          saveKodikCache(token);
+          return token;
+        } catch (e) {
+          // токен нерабочий — пробуем следующий
+        }
+      }
+    }
+    throw new Error('Сейчас нет рабочих публичных токенов Kodik. Вставь свой в «Настройках».');
+  }
+
+  async function resolveKodikToken(fromRenderer) {
+    var own = String(fromRenderer || '').trim();
+    if (own) return { token: own, source: 'user' };
+    var cached = readKodikCache();
+    if (cached) return { token: cached.token, source: 'public' };
+    return { token: await fetchPublicKodikToken(), source: 'public' };
+  }
+
+  // Запрос с токеном. Если публичный токен протух — один раз обновляем и повторяем.
+  async function kodikCall(path, params, fromRenderer) {
+    var resolved = await resolveKodikToken(fromRenderer);
+    try {
+      return { data: await kodikRequest(path, Object.assign({}, params, { token: resolved.token })), source: resolved.source };
+    } catch (err) {
+      if (!/токен|token/i.test(String((err && err.message) || '')) || resolved.source === 'user') throw err;
+      clearKodikCache();
+      var fresh = await fetchPublicKodikToken();
+      return { data: await kodikRequest(path, Object.assign({}, params, { token: fresh })), source: 'public' };
+    }
+  }
+
   // Java отвечает сюда: __nativeResolve(id, успех, результат)
   window.__nativeResolve = function (id, ok, value) {
     var p = pending.get(id);
@@ -355,6 +468,35 @@
       return { ok: true };
     },
     onUpdate: function () { return function () {}; },
+
+    // ДОБАВЛЕНО В 1.6.4: онлайн-просмотр Kodik на ТВ и телефоне.
+    // Раньше кнопка «Смотреть онлайн» падала с «kodikSearch is not a function».
+    kodikSearch: function (opts) {
+      opts = opts || {};
+      var rawId = String(opts.shikimoriId == null ? '' : opts.shikimoriId).trim();
+      var id = /^\d+$/.test(rawId) ? rawId : '';
+      var queryTitle = String(opts.title == null ? '' : opts.title).trim();
+      if (!id && !queryTitle) return Promise.reject(new Error('Нужен id Shikimori или название тайтла'));
+      var params = {
+        with_episodes: 'true',
+        with_episodes_data: 'true',
+        limit: Math.max(1, Math.min(Number(opts.limit) || 100, 100)),
+        types: 'anime,anime-serial',
+      };
+      if (id) params.shikimori_id = id; else params.title = queryTitle;
+      return kodikCall('/search', params, opts.token).then(function (r) { return r.data; });
+    },
+    kodikCheck: function (token) {
+      return kodikCall('/translations', {}, token).then(function (r) {
+        var d = r.data;
+        var list;
+        if (Array.isArray(d)) list = d;
+        else if (d && Array.isArray(d.results)) list = d.results;
+        else if (d && Array.isArray(d.translations)) list = d.translations;
+        else list = d ? Object.values(d) : [];
+        return { count: list.length, source: r.source === 'user' ? 'user' : 'public' };
+      });
+    },
 
     // ---------- Системные функции ПК — на Android не нужны ----------
     setCloseToTray: async function () { return { ok: false }; },

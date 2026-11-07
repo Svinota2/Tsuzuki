@@ -128,7 +128,7 @@ export async function render(root, [id, trParam, seasonParam, epParam]) {
           <a class="btn btn-sm btn-ghost" href="#/anime/${esc(id)}">← К тайтлу</a>
           <a class="t ttl" href="#/anime/${esc(id)}" title="Открыть страницу тайтла">${esc(titleOf(anime))}</a>
           <span class="grow"></span>
-          <button class="btn btn-sm btn-ghost" data-act="external">Открыть в окне ↗</button>
+          ${window.api && window.api.openPlayer ? '<button class="btn btn-sm btn-ghost" data-act="external">Открыть в окне ↗</button>' : ''}
         </div>
 
         <div class="online-player">
@@ -290,7 +290,8 @@ export async function render(root, [id, trParam, seasonParam, epParam]) {
     drawEpisodes();
     drawBar();
   });
-  page.querySelector('[data-act="external"]').addEventListener('click', () => {
+  page.querySelector('[data-act="external"]')?.addEventListener('click', () => {
+    // ДОБАВЛЕНО В 1.6.4: на Android отдельного окна плеера нет — кнопка скрыта
     // Прямую ссылку Kodik открывать в окне нельзя (404), поэтому открываем
     // локальную обёртку с тем же iframe — см. src/renderer/player-window.html
     if (iframe.src) window.api.openPlayer(iframe.src, titleOf(anime));

@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/версия-1.6.3-ff5d48?style=for-the-badge" alt="Версия 1.6.3"></a>
+  <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/версия-1.6.4-ff5d48?style=for-the-badge" alt="Версия 1.6.4"></a>
   <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows"></a>
   <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/Linux-deb%20%7C%20tar.gz-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux"></a>
   <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/Android-6.0+-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android 6.0+"></a>
@@ -51,8 +51,8 @@
 |---|---|
 | 💻 Windows 10/11 | `Tsuzuki-Setup.exe` — установщик, обновляется сам |
 | 💻 Windows без установки | `Tsuzuki-win-x64.zip` |
-| 🐧 Linux (Ubuntu, Debian, Mint) | `Tsuzuki-1.6.3-amd64.deb` |
-| 🐧 Linux, любой дистрибутив | `Tsuzuki-1.6.3-linux-x64.tar.gz` |
+| 🐧 Linux (Ubuntu, Debian, Mint) | `Tsuzuki-1.6.4-amd64.deb` |
+| 🐧 Linux, любой дистрибутив | `Tsuzuki-1.6.4-linux-x64.tar.gz` |
 | 📺 Android TV и приставки | `Tsuzuki-TV.apk` |
 | 📱 Android-телефон | `Tsuzuki-Phone.apk` |
 
@@ -69,9 +69,9 @@
 ### Linux
 
 ```bash
-sudo apt install ./Tsuzuki-1.6.3-amd64.deb        # Ubuntu, Debian, Mint
+sudo apt install ./Tsuzuki-1.6.4-amd64.deb        # Ubuntu, Debian, Mint
 # или портативно:
-tar xzf Tsuzuki-1.6.3-linux-x64.tar.gz   # затем chmod +x tsuzuki и ./tsuzuki
+tar xzf Tsuzuki-1.6.4-linux-x64.tar.gz   # затем chmod +x tsuzuki и ./tsuzuki
 ```
 
 ### Android TV и телефон
