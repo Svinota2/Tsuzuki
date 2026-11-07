@@ -33,9 +33,11 @@
 4. **GitHub:** создай публичный репозиторий `tsuzuki-releases` → Releases →
    Draft a new release → тег `v1.6.0` → загрузи 6 файлов из `release/` → Publish.
    Ссылки `.../releases/latest/download/version.json` начнут работать сразу.
-5. **Адреса** (один раз): в `src/main/settings.js` → `UPDATE_JSON_URL`,
-   в `../tsuzuki-tv-src/tv-web/android-api.js` → `UPDATE_URL_TV` / `UPDATE_URL_PHONE`.
-   Пока в них стоит `НИК`, автообновление считает себя ненастроенным.
+5. **Адреса** (один раз): уже вписаны `Svinota2/Tsuzuki` — в `src/main/settings.js`
+   (`UPDATE_JSON_URL`, `UPDATE_PAGE`) и в `../tsuzuki-tv-src/tv-web/android-api.js`
+   (`UPDATE_URL_TV`, `UPDATE_URL_PHONE`). Репозиторий должен быть ПУБЛИЧНЫМ, иначе
+   анонимно файлы не скачаются; пока публичного релиза нет, приложение пишет
+   «репозиторий релизов не найден» — это нормально.
 6. **Проверка:** для теста обновления положи version.json с версией `9.9.9` на localhost —
    при запуске из исходников (`npm start`) разрешён `http://localhost`, файл скачается,
    SHA-256 проверится, плашка появится.

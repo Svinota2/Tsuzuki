@@ -379,6 +379,12 @@ async function checkUpdates(manual = false) {
   setUpdaterState({ status: 'checking' });
   try {
     const res = await net.fetch(jsonUrl, { headers: { 'User-Agent': settings.USER_AGENT, Accept: 'application/json', 'Cache-Control': 'no-cache' } });
+    // ИЗМЕНЕНО В 1.6: пока репозиторий релизов не создан, GitHub отвечает 404.
+    // Не пугаем «ошибкой» — показываем, что автообновление ещё не настроено.
+    if (res.status === 404) {
+      setUpdaterState({ status: 'disabled', reason: 'not-found' });
+      return updateState;
+    }
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const info = await res.json();
     if (compareVersions(info.version, app.getVersion()) <= 0) {

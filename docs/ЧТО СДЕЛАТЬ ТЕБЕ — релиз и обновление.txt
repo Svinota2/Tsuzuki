@@ -5,33 +5,31 @@
 проверка на телефоне/ТВ). Пошагово, без спешки.
 
 ──────────────────────────────────────────────────────────────
-ШАГ 1. GitHub: аккаунт и репозиторий релизов
+ШАГ 1. GitHub: репозиторий Tsuzuki — сделать публичным
 ──────────────────────────────────────────────────────────────
-1) Зарегистрируйся на https://github.com (если ещё нет).
-2) Создай ПУБЛИЧНЫЙ репозиторий (New repository) с именем:  tsuzuki-releases
-   Галочки README/.gitignore не важны. Приватный репозиторий НЕ подойдёт:
-   файлы релиза не скачаются без входа, автообновление не сработает.
-3) Запомни свой ник (например, dmitr123) — он понадобится в адресах.
+Репозиторий уже создан: https://github.com/Svinota2/Tsuzuki
+Но сейчас GitHub не отдаёт его без входа (значит, он ПРИВАТНЫЙ), а автообновление
+скачивает файлы анонимно — из приватного репозитория не скачает.
+
+1) Открой https://github.com/Svinota2/Tsuzuki и войди в аккаунт.
+2) Settings → General → внизу «Danger Zone» → Change visibility → Make public.
+   (Если боишься открывать исходники — создай отдельный ПУБЛИЧНЫЙ репозиторий
+   только для файлов релиза, например tsuzuki-releases, и скажи мне: я переключу
+   адреса и пересоберу приложение один раз.)
+3) Пока репозиторий приватный/нет релиза, приложение в «Настройках → Обновления»
+   пишет «репозиторий релизов не найден» — это нормально. После публикации релиза
+   надпись сменится на «Установлена последняя версия».
 
 ──────────────────────────────────────────────────────────────
-ШАГ 2. Подставь свой ник в адреса (один раз)
+ШАГ 2. Ник в адресах — уже вписан
 ──────────────────────────────────────────────────────────────
-Файл 1: Исходники\tsuzuki-src\src\main\settings.js
-  Найди строки:
-    UPDATE_JSON_URL: ... 'https://github.com/НИК/tsuzuki-releases/...'
-    UPDATE_PAGE:     ... 'https://github.com/НИК/tsuzuki-releases/releases/latest'
-  Замени НИК на свой ник. Например:
-    UPDATE_JSON_URL: 'https://github.com/dmitr123/tsuzuki-releases/releases/latest/download/version.json',
-    UPDATE_PAGE: 'https://github.com/dmitr123/tsuzuki-releases/releases/latest',
-
-Файл 2: Исходники\tsuzuki-tv-src\tv-web\android-api.js
-  Найди:
-    var UPDATE_URL_TV = 'https://github.com/НИК/.../version-tv.json';
-    var UPDATE_URL_PHONE = 'https://github.com/НИК/.../version-phone.json';
-  Замени НИК в обеих строках.
-
-Пока стоит «НИК», автообновление считает себя ненастроенным и ничего не скачивает
-(это нормально: ничего не ломается).
+В этой сборке ник Svinota2 уже стоит в обоих файлах:
+  Исходники\tsuzuki-src\src\main\settings.js → UPDATE_JSON_URL, UPDATE_PAGE
+  Исходники\tsuzuki-tv-src\tv-web\android-api.js → UPDATE_URL_TV, UPDATE_URL_PHONE
+Менять ничего не нужно, если не решишь сменить ник или репозиторий:
+тогда замени в этих двух файлах `Svinota2/Tsuzuki` на свой путь (ник/репозиторий)
+и пересобери установщик и APK (после смены адреса старые сборки будут искать
+по старому адресу).
 
 ──────────────────────────────────────────────────────────────
 ШАГ 3. Два других ключа (по желанию, можно позже)
@@ -69,14 +67,14 @@
 
 3) Подготовь папку релиза:
    cd Исходники\tsuzuki-src
-   node tools\make-release.mjs --repo "твой_ник/tsuzuki-releases"
+   node tools\make-release.mjs --repo "твой_ник/Tsuzuki"
    В папке release\ появятся 6 файлов:
      Tsuzuki-Setup.exe, Tsuzuki-TV.apk, Tsuzuki-Phone.apk,
      version.json, version-tv.json, version-phone.json
    (установщик и APK скрипт ищет рядом; пути можно указать явно
     ключами --setup, --tv, --phone; заметки — --notes "что нового").
 
-4) GitHub → репозиторий tsuzuki-releases → Releases → Draft a new release:
+4) GitHub → репозиторий Tsuzuki → Releases → Draft a new release:
    - Tag: v1.7.0 (номер как в package.json), Target: main;
    - перетащи ВСЕ 6 файлов из release\;
    - Publish release.

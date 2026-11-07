@@ -44,9 +44,9 @@ module.exports = {
   // Windows: приложение раз в несколько часов проверяет файл, тихо качает установщик,
   //   сверяет SHA-256 и предлагает перезапуститься.
   // Linux: ничего не качает (установщик .exe не запустить) — открывает страницу релиза.
-  UPDATE_JSON_URL: process.env.TSUZUKI_UPDATE_URL || 'https://github.com/НИК/tsuzuki-releases/releases/latest/download/version.json',
+  UPDATE_JSON_URL: process.env.TSUZUKI_UPDATE_URL || 'https://github.com/Svinota2/Tsuzuki/releases/latest/download/version.json',
   // Куда вести на Linux, если в version.json нет поля "page":
-  UPDATE_PAGE: 'https://github.com/НИК/tsuzuki-releases/releases/latest',
+  UPDATE_PAGE: 'https://github.com/Svinota2/Tsuzuki/releases/latest',
   // Разрешённые хосты для скачивания установщика (только https).
   // Свой сайт добавь сюда, иначе скачивание будет отклонено.
   UPDATE_ALLOWED_HOSTS: ['github.com', 'objects.githubusercontent.com', 'release-assets.githubusercontent.com'],

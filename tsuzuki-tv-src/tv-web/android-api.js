@@ -36,8 +36,8 @@
   // у каждого свой. Замени НИК на свой ник на GitHub (публичный репозиторий релизов).
   // Формат: { "versionCode": 8, "versionName": "1.6.0", "apk": "https://…apk",
   //           "sha256": "hex…", "page": "https://…/releases", "notes": "…" }
-  var UPDATE_URL_TV = 'https://github.com/НИК/tsuzuki-releases/releases/latest/download/version-tv.json';
-  var UPDATE_URL_PHONE = 'https://github.com/НИК/tsuzuki-releases/releases/latest/download/version-phone.json';
+  var UPDATE_URL_TV = 'https://github.com/Svinota2/Tsuzuki/releases/latest/download/version-tv.json';
+  var UPDATE_URL_PHONE = 'https://github.com/Svinota2/Tsuzuki/releases/latest/download/version-phone.json';
   // Старое имя оставлено запасным: используется, если адрес для этой платформы пуст.
   var UPDATE_URL = '';
   // Разрешённые хосты для скачивания APK (только https). Свой сайт добавь сюда.
@@ -302,6 +302,9 @@
       if (!updateHostAllowed(url)) { lastUpdate = { status: 'error', error: 'host' }; return lastUpdate; }
       try {
         var res = await http('GET', url, {}, '');
+        // ИЗМЕНЕНО В 1.6: пока репозиторий релизов не создан, GitHub отвечает 404 —
+        // это не ошибка, а «ещё не настроено».
+        if (res.status === 404) { lastUpdate = { status: 'disabled', reason: 'not-found' }; return lastUpdate; }
         if (res.status >= 400) throw new Error('сервер');
         var info = JSON.parse(res.text || '{}');
         var current = 0;

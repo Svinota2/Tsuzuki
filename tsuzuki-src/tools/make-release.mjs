@@ -88,7 +88,7 @@ if (missing.length) {
 }
 
 // ---------- 3. Репозиторий и адреса ----------
-const repo = arg('repo', process.env.GITHUB_REPO || 'НИК/tsuzuki-releases');
+const repo = arg('repo', process.env.GITHUB_REPO || 'Svinota2/Tsuzuki');
 const base = 'https://github.com/' + repo + '/releases/latest/download/';
 const page = 'https://github.com/' + repo + '/releases/latest';
 if (/НИК/i.test(repo)) {
