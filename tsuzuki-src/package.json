@@ -1,7 +1,7 @@
 {
   "name": "tsuzuki",
   "productName": "Tsuzuki",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Каталог и трекер аниме: Shikimori, онлайн-просмотр Kodik, свои файлы, блокировка рекламы",
   "main": "src/main/main.js",
   "author": {

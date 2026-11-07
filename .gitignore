@@ -1,6 +1,7 @@
 # Ключи подписи и пароли — никогда не коммитить
 *.keystore
 *.jks
+keystore.properties
 local.properties
 
 # Сборки
