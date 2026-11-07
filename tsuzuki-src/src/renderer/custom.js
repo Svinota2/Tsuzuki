@@ -13,6 +13,7 @@
 
 import { CONFIG } from './config.js';
 import { getPrefs, setPref } from './store.js';
+import { refresh as refreshPresence } from './api/presence.js'; // ДОБАВЛЕНО В 1.6.2
 
 // Исходные значения CONFIG — чтобы можно было вернуть «как было»
 const DEFAULTS = { ...CONFIG };
@@ -65,7 +66,9 @@ export const OPTIONS = [
   { key: 'AUTO_MARK_PERCENT', group: 'tracker', label: 'Отмечать серию просмотренной на', type: 'range', min: 50, max: 100, step: 5, unit: '%' },
   { key: 'AUTOPLAY_NEXT', group: 'tracker', label: 'Включать следующую серию (свои файлы)', type: 'toggle' },
   // ДОБАВЛЕНО В 1.5: нужен DISCORD_CLIENT_ID в src/main/settings.js; на ТВ пункт ничего не делает
-  { key: 'DISCORD_PRESENCE', group: 'tracker', label: 'Статус в Discord при просмотре своих файлов', type: 'toggle' },
+  { key: 'DISCORD_PRESENCE', group: 'tracker', label: 'Статус в Discord (ПК)', type: 'toggle' },
+  // ДОБАВЛЕНО В 1.6.2: статус не только в плеере, но и в каталоге, на странице тайтла и т.д.
+  { key: 'DISCORD_PRESENCE_BROWSE', group: 'tracker', label: 'Показывать в статусе Discord, что открыто в приложении (раздел, тайтл)', type: 'toggle' },
   // ---------- Система (ИЗМЕНЕНО В 1.3) ----------
   { key: 'autoUpdate', group: 'system', label: 'Проверять обновления автоматически', type: 'toggle', def: true },
   { key: 'closeToTray', group: 'system', label: 'Сворачивать в трей при закрытии окна (ПК)', type: 'toggle', def: false },
@@ -105,6 +108,7 @@ export function resetCustom() {
 let lastAutostart = null; // чтобы не дёргать систему на каждую перерисовку
 
 export function applyCustom() {
+  // ДОБАВЛЕНО В 1.6.2: статус в Discord применяем сразу после смены настроек (ниже, в конце)
   const values = Object.fromEntries(OPTIONS.map((o) => [o.key, valueOf(o)]));
 
   // 1. Пункты, совпадающие с CONFIG, просто перекрывают его
@@ -136,4 +140,5 @@ export function applyCustom() {
     // выключает фоновую проверку в главном процессе (а не только плашку).
     if (window.api?.updateSetAuto) window.api.updateSetAuto(values.autoUpdate !== false).catch(() => {});
   } catch { /* на ТВ может не быть системных функций — не мешаем */ }
+  refreshPresence(); // ДОБАВЛЕНО В 1.6.2: включили/выключили статус в Discord — применяем сразу
 }

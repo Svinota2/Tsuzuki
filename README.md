@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/версия-1.6.1-ff5d48?style=for-the-badge" alt="Версия 1.6.1"></a>
+  <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/версия-1.6.3-ff5d48?style=for-the-badge" alt="Версия 1.6.3"></a>
   <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows"></a>
   <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/Linux-deb%20%7C%20tar.gz-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux"></a>
   <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/Android-6.0+-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android 6.0+"></a>
@@ -34,6 +34,8 @@
 | ✅ | **Трекер** — «смотрю», «в планах», «просмотрено», «брошено», отметки серий, оценки, заметки и подборки |
 | 🔄 | **Синхронизация с Shikimori** — вход через аккаунт, отметки и оценки уходят в обе стороны, работает офлайн |
 | ▶️ | **Встроенный плеер** — досмотрел серию, и она отметилась сама; субтитры .srt и .ass |
+| ⧉ | **Мини-плеер** — отдельное окно без рамки поверх всех окон, как в Discord |
+| 🎮 | **Статус в Discord** — друзья видят, что ты смотришь: «название · Серия 5 из 12» |
 | 📂 | **Автораскладка папки** — Tsuzuki сам находит тайтлы по названиям папок и понимает «2 сезон», «S2», «[группа] 1080p» |
 | 📊 | **Статистика и итоги года** — часы, жанры, серии подряд, достижения и картинка для сторис |
 | 🔔 | **Уведомления** — о новых сериях на ПК и на Android, даже когда приложение закрыто |
@@ -49,8 +51,8 @@
 |---|---|
 | 💻 Windows 10/11 | `Tsuzuki-Setup.exe` — установщик, обновляется сам |
 | 💻 Windows без установки | `Tsuzuki-win-x64.zip` |
-| 🐧 Linux (Ubuntu, Debian, Mint) | `Tsuzuki-1.6.1-amd64.deb` |
-| 🐧 Linux, любой дистрибутив | `Tsuzuki-1.6.1-linux-x64.tar.gz` |
+| 🐧 Linux (Ubuntu, Debian, Mint) | `Tsuzuki-1.6.3-amd64.deb` |
+| 🐧 Linux, любой дистрибутив | `Tsuzuki-1.6.3-linux-x64.tar.gz` |
 | 📺 Android TV и приставки | `Tsuzuki-TV.apk` |
 | 📱 Android-телефон | `Tsuzuki-Phone.apk` |
 
@@ -67,9 +69,9 @@
 ### Linux
 
 ```bash
-sudo apt install ./Tsuzuki-1.6.1-amd64.deb        # Ubuntu, Debian, Mint
+sudo apt install ./Tsuzuki-1.6.3-amd64.deb        # Ubuntu, Debian, Mint
 # или портативно:
-tar xzf Tsuzuki-1.6.1-linux-x64.tar.gz   # затем chmod +x tsuzuki и ./tsuzuki
+tar xzf Tsuzuki-1.6.3-linux-x64.tar.gz   # затем chmod +x tsuzuki и ./tsuzuki
 ```
 
 ### Android TV и телефон
@@ -104,6 +106,8 @@ tar xzf Tsuzuki-1.6.1-linux-x64.tar.gz   # затем chmod +x tsuzuki и ./tsuz
 - Достижения
 
 **ПК**
+- Мини-плеер в отдельном окне: без рамки, поверх всех окон (булавка 📌), горячие клавиши, запоминает размер и место
+- Статус в Discord: что открыто в приложении и какая серия идёт; отключается в настройках
 - Трей, автозапуск, фоновые проверки новых серий с системными уведомлениями
 - Автообновление: тихая установка и перезапуск, на Linux — ссылка на страницу релиза
 

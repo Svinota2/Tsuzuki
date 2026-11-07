@@ -11,6 +11,7 @@ import { loadKodik, kodikError } from '../api/kodik.js';
 import * as store from '../store.js';
 import { esc, titleOf, toast, plural } from '../utils.js';
 import { animeFromEntry } from './anime.js';
+import { setPlaying } from '../api/presence.js'; // ДОБАВЛЕНО В 1.6.3: статус в Discord при онлайн-просмотре
 
 // Кеш ответов Kodik: id тайтла + токен → список озвучек
 const cache = new Map();
@@ -117,6 +118,7 @@ export async function render(root, [id, trParam, seasonParam, epParam]) {
   }
 
   const movie = anime.kind === 'movie' || currentTr.episodes.length === 1 && anime.kind !== 'tv';
+  let presenceStart = Date.now(); // ДОБАВЛЕНО В 1.6.3: сколько смотрим в Discord
 
   // ---------- Разметка ----------
   root.innerHTML = `
@@ -236,6 +238,12 @@ export async function render(root, [id, trParam, seasonParam, epParam]) {
     drawEpisodes();
     drawBar();
     page.querySelector('.file.current')?.scrollIntoView({ block: 'nearest' });
+
+    // ДОБАВЛЕНО В 1.6.3: статус в Discord — название и «Серия N из M»
+    presenceStart = Date.now();
+    setPlaying(movie
+      ? { title: titleOf(anime), episode: 0, total: 0, startedAt: presenceStart }
+      : { title: titleOf(anime), episode: currentEp.episode, total: anime.episodes || 0, startedAt: presenceStart });
   }
 
   function go(delta) {
@@ -294,6 +302,7 @@ export async function render(root, [id, trParam, seasonParam, epParam]) {
 
   return () => {
     iframe.src = 'about:blank';
+    setPlaying(null); // ДОБАВЛЕНО В 1.6.3: убираем статус при уходе с страницы
   };
 }
 
