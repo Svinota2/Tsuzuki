@@ -26,7 +26,9 @@ function autoCheckEnabled() {
 export function updateText(s) {
   switch (s && s.status) {
     case 'disabled':
-      return 'Автообновление не настроено: впиши адрес version.json в src/main/settings.js';
+      return s && s.reason === 'not-found'
+        ? 'Автообновление ещё не настроено: репозиторий релизов не найден (проверь адрес в src/main/settings.js)'
+        : 'Автообновление не настроено: впиши адрес version.json в src/main/settings.js';
     case 'checking':
       return 'Проверяем обновления…';
     case 'available':
