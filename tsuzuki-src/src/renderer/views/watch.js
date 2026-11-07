@@ -128,7 +128,7 @@ export async function render(root, [id, trParam, seasonParam, epParam]) {
           <a class="btn btn-sm btn-ghost" href="#/anime/${esc(id)}">← К тайтлу</a>
           <a class="t ttl" href="#/anime/${esc(id)}" title="Открыть страницу тайтла">${esc(titleOf(anime))}</a>
           <span class="grow"></span>
-          ${window.api && window.api.openPlayer ? '<button class="btn btn-sm btn-ghost" data-act="external">Открыть в окне ↗</button>' : ''}
+          ${window.api && window.api.openPlayer ? `<button class="btn btn-sm btn-ghost" data-act="external">${window.api.manualInstall ? 'Плеер на весь экран ↗' : 'Открыть в окне ↗'}</button>` : ''}
         </div>
 
         <div class="online-player">
@@ -137,6 +137,10 @@ export async function render(root, [id, trParam, seasonParam, epParam]) {
                   allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
                   referrerpolicy="no-referrer"></iframe>
         </div>
+        <!-- ДОБАВЛЕНО В 1.6.5: подсказка для телефона/ТВ, если iframe не запустился -->
+        ${window.api && window.api.manualInstall
+          ? '<p class="faint" style="margin:6px 14px 0">Если видео внутри не запускается — нажми «Плеер на весь экран ↗».</p>'
+          : ''}
 
         <div class="player-bar">
           <button class="btn btn-sm" id="prev" data-act="prev">⏮ Пред.</button>
