@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/версия-1.6.5-ff5d48?style=for-the-badge" alt="Версия 1.6.5"></a>
+  <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/версия-1.9.0-ff5d48?style=for-the-badge" alt="Версия 1.9.0"></a>
   <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows"></a>
   <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/Linux-deb%20%7C%20tar.gz-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux"></a>
   <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/Android-6.0+-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android 6.0+"></a>
@@ -42,6 +42,9 @@
 | 🎲 | **Рулетка и «Для тебя»** — случайный тайтл из списка и рекомендации по любимым жанрам и студиям |
 | ⬆️ | **Автообновление** — в один клик, с проверкой файла по SHA-256 |
 | 🎨 | **Темы** — тёмная, OLED, сине-серая и светлая; свой акцентный цвет, масштаб и размер карточек |
+| 🚫 | **Без рекламы** — Kodik и AniLibria играют в своём плеере по прямым ссылкам, реклама не загружается |
+| ⤓ | **Скачивание серий** — в MP4 (ПК) или MPEG-TS (телефон/ТВ), с прогрессом, для Kodik, AniLibria и своих ссылок |
+| 📱 | **Выбор плеера** — перед просмотром: Kodik, AniLibria, свои файлы или своя ссылка |
 
 ## ⬇ Скачать
 
@@ -51,8 +54,8 @@
 |---|---|
 | 💻 Windows 10/11 | `Tsuzuki-Setup.exe` — установщик, обновляется сам |
 | 💻 Windows без установки | `Tsuzuki-win-x64.zip` |
-| 🐧 Linux (Ubuntu, Debian, Mint) | `Tsuzuki-1.6.5-amd64.deb` |
-| 🐧 Linux, любой дистрибутив | `Tsuzuki-1.6.5-linux-x64.tar.gz` |
+| 🐧 Linux (Ubuntu, Debian, Mint) | `Tsuzuki-1.9.0-amd64.deb` |
+| 🐧 Linux, любой дистрибутив | `Tsuzuki-1.9.0-linux-x64.tar.gz` |
 | 📺 Android TV и приставки | `Tsuzuki-TV.apk` |
 | 📱 Android-телефон | `Tsuzuki-Phone.apk` |
 
@@ -69,9 +72,9 @@
 ### Linux
 
 ```bash
-sudo apt install ./Tsuzuki-1.6.5-amd64.deb        # Ubuntu, Debian, Mint
+sudo apt install ./Tsuzuki-1.9.0-amd64.deb        # Ubuntu, Debian, Mint
 # или портативно:
-tar xzf Tsuzuki-1.6.5-linux-x64.tar.gz   # затем chmod +x tsuzuki и ./tsuzuki
+tar xzf Tsuzuki-1.9.0-linux-x64.tar.gz   # затем chmod +x tsuzuki и ./tsuzuki
 ```
 
 ### Android TV и телефон
@@ -93,12 +96,14 @@ tar xzf Tsuzuki-1.6.5-linux-x64.tar.gz   # затем chmod +x tsuzuki и ./tsuz
 - Чистый поиск без клипов и промо, сортировка «Лучшие» с учётом числа оценок
 - Календарь онгоингов, история просмотра, «Продолжить просмотр»
 - «Люди»: профили пользователей Shikimori, друзья, их оценки и активность
-- Импорт списков из MyAnimeList, Shikimori, Kitsu (файл .xml) и AniList (по нику)
+- Импорт списков из MyAnimeList, Shikimori, Kitsu (файл .xml), AniList (по нику) и **Anixart** (экспорт закладок .txt/.csv)
 
 **Просмотр**
-- Встроенный плеер для своих файлов с автоотметкой серий и субтитрами
+- Выбор плеера перед просмотром: Kodik, AniLibria, свои файлы или своя ссылка
+- Kodik без рекламы: серии играют в своём плеере по прямым HLS-ссылкам, сторонний iframe не запускается
+- Скачивание серий с прогрессом: MP4 на ПК, MPEG-TS на телефоне/ТВ (папка `Movies/Tsuzuki`)
+- Свой плеер: ±10 секунд, пропуск опенинга, качество и скорость; автоотметка серий
 - Автораскладка общей папки с аниме: таблица «папка → тайтл» с процентом уверенности, ничего не привязывается без подтверждения
-- Кнопки официальных сервисов прямо на странице тайтла
 
 **Статистика**
 - Часы, серии, «дней подряд», сравнение твоих оценок с оценками Shikimori
@@ -168,7 +173,7 @@ cd tsuzuki-phone-src
 ./gradlew assembleRelease
 ```
 
-**Релиз:** `node tools/make-release.mjs` в `tsuzuki-src` собирает файлы с постоянными именами, считает SHA-256 и пишет `version*.json` для автообновления.
+**Релиз:** `node tools/make-release.mjs` в `tsuzuki-src` собирает файлы с постоянными именами, считает SHA-256 и пишет `version*.json` для автообновления. Перед публикацией обнови описание и бейдж версии: `node tools/update-readme.mjs` (подставит номер версии из `package.json`).
 
 > [!WARNING]
 > Ключ подписи и пароли в репозитории не хранятся. Для релизной сборки Android нужен `keystore.properties` рядом с проектом — создать ключ и этот файл: `tsuzuki-src\tools\make-keystore.bat`. Храни ключ в надёжном месте: без того же ключа обновление не встанет поверх установленной версии.
