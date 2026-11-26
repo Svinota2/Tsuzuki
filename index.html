@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#171921"><meta name="apple-mobile-web-app-capable" content="yes"><link rel="apple-touch-icon" href="./icon.png"><link rel="manifest" href="./manifest.webmanifest"><link rel="stylesheet" href="./vendor/video-js.min.css"><link rel="stylesheet" href="./style.css"><title>Tsuzuki</title></head>
+<body><header><a href="#catalog" class="brand"><b>◆</b> Tsuzuki</a><a href="#account" id="profile">Войти</a></header>
+<main><section id="catalog"><h1>Каталог</h1><form id="search"><input type="search" name="q" placeholder="Название аниме" aria-label="Название аниме"><button>Найти</button></form><p id="catalog-state" role="status"></p><div id="titles" class="grid"></div></section>
+<section id="library" hidden><h1>Моя библиотека</h1><div id="entries"></div></section>
+<section id="player" hidden>
+  <h1>Плеер</h1>
+  <div class="sources" role="tablist" aria-label="Источник видео">
+    <button type="button" class="source active" data-source="anilibria" role="tab" aria-selected="true">AniLibria</button>
+    <button type="button" class="source" data-source="kodik" role="tab" aria-selected="false">Kodik</button>
+    <button type="button" class="source" data-source="file" role="tab" aria-selected="false">Свои файлы</button>
+    <button type="button" class="source" data-source="link" role="tab" aria-selected="false">Ссылка</button>
+  </div>
+  <div id="player-stage"><video id="video" controls playsinline preload="metadata"></video><div id="kodik-host" hidden></div></div>
+  <p id="player-status" role="status"></p>
+  <div id="player-tools" class="player-tools" hidden>
+    <button type="button" data-seek="-10">⏪ 10</button>
+    <button type="button" data-seek="10">10 ⏩</button>
+    <button type="button" id="player-skip" data-skip hidden>Пропустить опенинг</button>
+    <select id="player-quality" aria-label="Качество"></select>
+    <select id="player-speed" aria-label="Скорость"><option>0.75</option><option selected>1</option><option>1.25</option><option>1.5</option><option>2</option></select>
+  </div>
+  <div class="source-panel" id="panel-anilibria">
+    <form id="anilibria-search"><input name="q" placeholder="Название тайтла на AniLibria" aria-label="Название тайтла" required><button>Найти</button></form>
+    <p class="hint">Прямые HLS-серии AniLibria в своём плеере — без рекламы, с качеством и пропуском опенинга.</p>
+    <div id="anilibria-releases" class="release-list"></div>
+    <div id="anilibria-episodes" class="episode-list"></div>
+  </div>
+  <div class="source-panel" id="panel-kodik" hidden>
+    <form id="kodik-form"><input type="url" required name="url" placeholder="https://kodikplayer.com/…"><button>Открыть</button></form>
+    <p class="hint">Kodik на сайте открывается как есть — с рекламой его плеера. Без рекламы Kodik играет в приложении Tsuzuki.</p>
+  </div>
+  <div class="source-panel" id="panel-file" hidden>
+    <label class="file">Выбрать видео на устройстве<input id="local" type="file" accept="video/*"></label>
+    <p class="hint">Файл не загружается на сервер — воспроизводится локально в браузере.</p>
+  </div>
+  <div class="source-panel" id="panel-link" hidden>
+    <form id="stream"><input type="url" required name="url" placeholder="https://… .m3u8 или .mp4"><button>Открыть</button></form>
+    <p class="hint">Поддерживаются HLS-плейлисты и MP4 по HTTPS.</p>
+  </div>
+</section>
+<section id="account" hidden><h1>Аккаунт</h1><p id="auth-hint" role="status" hidden></p><div id="logged" hidden><p id="who"></p><button id="logout">Выйти</button></div><div id="auth" class="panel"></div></section></main>
+<nav aria-label="Разделы"><a href="#catalog">Каталог</a><a href="#library">Библиотека</a><a href="#player">Плеер</a><a href="#account">Аккаунт</a></nav><output id="message" aria-live="polite"></output><script src="./vendor/video.min.js"></script><script type="module" src="./app.js"></script></body></html>
