@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/версия-1.9.0-ff5d48?style=for-the-badge" alt="Версия 1.9.0"></a>
+  <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/версия-1.9.1-ff5d48?style=for-the-badge" alt="Версия 1.9.1"></a>
   <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows"></a>
   <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/Linux-deb%20%7C%20tar.gz-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux"></a>
   <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/Android-6.0+-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android 6.0+"></a>
@@ -33,6 +33,7 @@
 | 📚 | **Каталог** — поиск, постеры, описания, рейтинги и статистика Shikimori; сезоны одной франшизы склеены в одну карточку |
 | ✅ | **Трекер** — «смотрю», «в планах», «просмотрено», «брошено», отметки серий, оценки, заметки и подборки |
 | 🔄 | **Синхронизация с Shikimori** — вход через аккаунт, отметки и оценки уходят в обе стороны, работает офлайн |
+| ☁️ | **Аккаунт Tsuzuki** — общая библиотека между ПК, ТВ и телефоном: вход по логину и паролю, перенос тайтлов |
 | ▶️ | **Встроенный плеер** — досмотрел серию, и она отметилась сама; субтитры .srt и .ass |
 | ⧉ | **Мини-плеер** — отдельное окно без рамки поверх всех окон, как в Discord |
 | 🎮 | **Статус в Discord** — друзья видят, что ты смотришь: «название · Серия 5 из 12» |
@@ -54,8 +55,8 @@
 |---|---|
 | 💻 Windows 10/11 | `Tsuzuki-Setup.exe` — установщик, обновляется сам |
 | 💻 Windows без установки | `Tsuzuki-win-x64.zip` |
-| 🐧 Linux (Ubuntu, Debian, Mint) | `Tsuzuki-1.9.0-amd64.deb` |
-| 🐧 Linux, любой дистрибутив | `Tsuzuki-1.9.0-linux-x64.tar.gz` |
+| 🐧 Linux (Ubuntu, Debian, Mint) | `Tsuzuki-1.9.1-amd64.deb` |
+| 🐧 Linux, любой дистрибутив | `Tsuzuki-1.9.1-linux-x64.tar.gz` |
 | 📺 Android TV и приставки | `Tsuzuki-TV.apk` |
 | 📱 Android-телефон | `Tsuzuki-Phone.apk` |
 
@@ -72,9 +73,9 @@
 ### Linux
 
 ```bash
-sudo apt install ./Tsuzuki-1.9.0-amd64.deb        # Ubuntu, Debian, Mint
+sudo apt install ./Tsuzuki-1.9.1-amd64.deb        # Ubuntu, Debian, Mint
 # или портативно:
-tar xzf Tsuzuki-1.9.0-linux-x64.tar.gz   # затем chmod +x tsuzuki и ./tsuzuki
+tar xzf Tsuzuki-1.9.1-linux-x64.tar.gz   # затем chmod +x tsuzuki и ./tsuzuki
 ```
 
 ### Android TV и телефон
@@ -97,6 +98,7 @@ tar xzf Tsuzuki-1.9.0-linux-x64.tar.gz   # затем chmod +x tsuzuki и ./tsuz
 - Календарь онгоингов, история просмотра, «Продолжить просмотр»
 - «Люди»: профили пользователей Shikimori, друзья, их оценки и активность
 - Импорт списков из MyAnimeList, Shikimori, Kitsu (файл .xml), AniList (по нику) и **Anixart** (экспорт закладок .txt/.csv)
+- Общая библиотека в аккаунте Tsuzuki: вход по логину и паролю, перенос тайтлов в аккаунт и на устройство
 
 **Просмотр**
 - Выбор плеера перед просмотром: Kodik, AniLibria, свои файлы или своя ссылка
