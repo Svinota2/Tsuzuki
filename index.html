@@ -133,7 +133,15 @@
           <button type="submit">Открыть</button>
         </form>
         <p class="hint">Kodik на сайте открывается как есть — с рекламой его плеера. Без рекламы Kodik играет в приложении Tsuzuki.</p>
-        <div id="kodik-host"></div>
+        <div class="kodik-help">
+          <strong>Чего нет на AniLibria?</strong>
+          <p>Открой поиск Kodik в новой вкладке, выбери озвучку, скопируй ссылку на плеер вида <code>https://kodikplayer.com/…</code> и вставь её в поле выше.</p>
+          <div class="fallback-actions">
+            <a id="kodik-search-link" class="fallback-button" href="https://kodik.info/search" target="_blank" rel="noopener noreferrer">Открыть поиск Kodik ↗</a>
+            <button type="button" id="kodik-copy-title" class="fallback-button ghost">Скопировать название</button>
+          </div>
+          <p class="hint">Внутри Kodik-плеера выбери серию. Если вместо плеера чёрный экран — открой ссылку в новой вкладке.</p>
+        </div>
       </div>
 
       <div class="source-panel" id="panel-file" hidden>

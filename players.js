@@ -137,127 +137,12 @@ function kodikSearchUrl(title) {
   return 'https://kodik.info/search?title=' + encodeURIComponent(String(title || currentQuery || '').trim());
 }
 
-// ============================================================
-//  Kodik API на сайте (1.9.11)
-//  Публичный токен берём из открытого списка AnimeParsers и расшифровываем
-//  так же, как в приложении. Свой токен не нужен.
-// ============================================================
-const KODIK_TOKENS_URL = 'https://raw.githubusercontent.com/YaNesyTortiK/AnimeParsers/refs/heads/main/kdk_tokns/tokens.json';
-let kodikToken = '';
-
-function base64Utf8(value) {
-  const binary = atob(value);
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
-}
-
-function decodeKodikToken(encoded) {
-  const mid = Math.floor(encoded.length / 2);
-  const tail = base64Utf8(encoded.slice(0, mid).split('').reverse().join(''));
-  const head = base64Utf8(encoded.slice(mid).split('').reverse().join(''));
-  return head + tail;
-}
-
-async function getKodikToken() {
-  if (kodikToken) return kodikToken;
-  const response = await fetch(KODIK_TOKENS_URL, { cache: 'no-store' });
-  if (!response.ok) throw new Error('не удалось получить публичный токен Kodik');
-  const list = await response.json();
-  for (const group of ['stable', 'unstable']) {
-    for (const item of list?.[group] || []) {
-      try {
-        const token = decodeKodikToken(String(item?.tokn || ''));
-        if (token) { kodikToken = token; return token; }
-      } catch { /* пробуем следующий */ }
-    }
-  }
-  throw new Error('сейчас нет доступного токена Kodik');
-}
-
-async function kodikRequest(path, params) {
-  const query = new URLSearchParams({ ...params, token: await getKodikToken() });
-  const response = await fetch('https://kodik-api.com' + path + '?' + query.toString(), { cache: 'no-store' });
-  const data = await response.json().catch(() => null);
-  if (!response.ok || data?.error) {
-    kodikToken = '';
-    throw new Error(data?.error || 'Kodik ответил ' + response.status);
-  }
-  return data;
-}
-
-async function searchKodik(title) {
-  const value = String(title || currentQuery || currentOriginal || '').trim();
-  if (!value) throw new Error('нет названия для поиска');
-  const data = await kodikRequest('/search', {
-    title: value,
-    limit: '20',
-    with_episodes: 'true',
-    with_episodes_data: 'true',
-    types: 'anime,anime-serial',
-  });
-  return Array.isArray(data?.results) ? data.results : [];
-}
-
-function kodikLink(result) {
-  const link = String(result?.link || '');
-  if (link.startsWith('//')) return 'https:' + link;
-  return link;
-}
-
-function renderKodikResults(results, title) {
-  const host = $('anilibria-fallback');
-  if (!host) return;
-  host.replaceChildren();
-  const card = el('div', null, 'fallback-card');
-  card.append(
-    el('strong', 'Kodik — выбери озвучку'),
-    el('p', 'Плеер Kodik с рекламой. Без рекламы тот же тайтл играет в приложении Tsuzuki.', 'hint')
-  );
-  const list = el('div', null, 'kodik-results');
-  for (const result of results.slice(0, 12)) {
-    const button = el('button', null, 'kodik-result');
-    button.type = 'button';
-    const label = String(result.title || title || 'Без названия');
-    const translation = result.translation?.title ? ' · ' + result.translation.title : '';
-    const meta = [];
-    if (result.year) meta.push(result.year);
-    if (result.episodes_count) meta.push(result.episodes_count + ' сер.');
-    button.append(
-      el('span', label + translation, 'kodik-result-title'),
-      el('span', meta.join(' · ') || 'Kodik', 'kodik-result-meta')
-    );
-    button.onclick = () => {
-      const link = kodikLink(result);
-      if (!link) { setStatus('У этой озвучки нет ссылки на плеер.'); return; }
-      setSource('kodik');
-      openKodik(link);
-      $('kodik-host')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    };
-    list.append(button);
-  }
-  card.append(list);
-  const back = el('button', '← Назад', 'fallback-button ghost');
-  back.type = 'button';
-  back.onclick = () => searchAnilibria(title || currentQuery);
-  card.append(back);
-  host.append(card);
-  host.hidden = false;
-  fallbackVisible = true;
-  setStatus('Kodik: найдено вариантов — ' + results.length + '. Выбери озвучку.');
-}
-
-async function findOnKodik(title) {
-  setStatus('Ищу на Kodik…');
-  try {
-    const results = await searchKodik(title);
-    if (!results.length) {
-      showFallback('Kodik тоже не нашёл этот тайтл. Попробуй открыть Kodik вручную.', title);
-      return;
-    }
-    renderKodikResults(results, title);
-  } catch (error) {
-    showFallback('Kodik не ответил: ' + (error?.message || 'ошибка') + '. Можно открыть Kodik вручную.', title);
-  }
+function updateKodikHelp(title) {
+  const value = String(title || currentQuery || releaseTitle(currentRelease) || '').trim();
+  const link = $('kodik-search-link');
+  if (link) link.href = kodikSearchUrl(value);
+  const copy = $('kodik-copy-title');
+  if (copy) copy.dataset.title = value;
 }
 
 function showFallback(reason, title) {
@@ -270,9 +155,10 @@ function showFallback(reason, title) {
     el('p', reason || 'Тайтл может быть недоступен по лицензии или у релиза нет видео.', 'hint')
   );
   const actions = el('div', null, 'fallback-actions');
-  const kodik = el('button', 'Найти на Kodik', 'fallback-button');
-  kodik.type = 'button';
-  kodik.onclick = () => findOnKodik(title);
+  const kodik = el('a', 'Найти на Kodik', 'fallback-button');
+  kodik.href = kodikSearchUrl(title);
+  kodik.target = '_blank';
+  kodik.rel = 'noopener noreferrer';
   const external = el('a', 'Открыть Kodik в новой вкладке', 'fallback-button ghost');
   external.href = kodikSearchUrl(title);
   external.target = '_blank';
@@ -281,6 +167,7 @@ function showFallback(reason, title) {
   paste.type = 'button';
   paste.onclick = () => {
     setSource('kodik');
+    updateKodikHelp(title || currentQuery);
     const form = $('kodik-form');
     if (form) {
       form.hidden = false;
@@ -486,7 +373,14 @@ function openKodik(value) {
   frame.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
   frame.setAttribute('referrerpolicy', 'no-referrer');
   host.append(frame);
-  setStatus('Kodik открыт как есть — с рекламой плеера. Без рекламы Kodik играет в приложении Tsuzuki.');
+  const openExternal = document.createElement('a');
+  openExternal.href = url.href;
+  openExternal.target = '_blank';
+  openExternal.rel = 'noopener noreferrer';
+  openExternal.className = 'kodik-open-external';
+  openExternal.textContent = 'Если чёрный экран — открыть этот плеер в новой вкладке ↗';
+  host.append(openExternal);
+  setStatus('Kodik открыт как есть — выбери серию. Без рекламы Kodik играет в приложении Tsuzuki.');
   showStage('kodik');
 }
 
@@ -513,7 +407,10 @@ export function initPlayer() {
   if (initialized) return;
   initialized = true;
   document.querySelectorAll('.source').forEach((button) => {
-    button.addEventListener('click', () => setSource(button.dataset.source));
+    button.addEventListener('click', () => {
+      setSource(button.dataset.source);
+      if (button.dataset.source === 'kodik') updateKodikHelp();
+    });
   });
   const search = $('anilibria-search');
   if (search) {
@@ -563,6 +460,20 @@ export function initPlayer() {
       openKodik(kodik.elements.url.value);
     });
   }
+  const kodikCopy = $('kodik-copy-title');
+  if (kodikCopy) {
+    kodikCopy.addEventListener('click', async () => {
+      const title = kodikCopy.dataset.title || currentQuery;
+      if (!title) { setStatus('Сначала найди тайтл.'); return; }
+      try {
+        await navigator.clipboard.writeText(title);
+        setStatus('Название скопировано: ' + title);
+      } catch {
+        setStatus('Не удалось скопировать. Название: ' + title);
+      }
+    });
+  }
+  updateKodikHelp();
   const local = $('local');
   if (local) {
     local.addEventListener('change', (event) => {
