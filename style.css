@@ -634,3 +634,16 @@ select { padding: 9px 12px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+/* Kodik: результаты поиска на сайте (1.9.11) */
+.kodik-results { display: grid; gap: 8px; margin: 10px 0 4px; max-height: 320px; overflow: auto; }
+.kodik-result {
+  display: flex; flex-direction: column; gap: 3px; width: 100%;
+  padding: 10px 12px; text-align: left; cursor: pointer;
+  border: 1px solid var(--line, #333); border-radius: 12px;
+  background: var(--panel-2, #1b1b24); color: var(--text, #f2f2f5);
+  transition: border-color .15s, background .15s;
+}
+.kodik-result:hover { border-color: var(--accent, #ff6b5f); background: var(--panel-3, #242430); }
+.kodik-result-title { font-weight: 700; font-size: 13px; }
+.kodik-result-meta { color: var(--text-2, #9a9aa6); font-size: 11px; }
