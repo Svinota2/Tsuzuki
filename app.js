@@ -51,7 +51,7 @@ async function catalog(){
         if(!login){pending=a;location.hash='account';return;}
         await api('library','POST',a);note('Тайтл в библиотеке');
       },'add'));
-      copy.append(button('Смотреть',()=>openPlayer(a.title)));
+      copy.append(button('Смотреть',()=>openPlayer(a.title,a.original,a.episodes)));
       feature.append(copy);$('titles').append(feature,el('h2','Популярные тайтлы','shelf-title'));
     }
     for(const a of rows){
@@ -62,7 +62,7 @@ async function catalog(){
       card.append(poster,el('strong',a.title),el('small',meta),button('В библиотеку',async()=>{
         if(!login){pending=a;location.hash='account';note('Войдите, чтобы сохранить тайтл');return;}
         await api('library','POST',a);note('Тайтл в библиотеке');
-      },'add'),button('Смотреть',()=>openPlayer(a.title)));
+      },'add'),button('Смотреть',()=>openPlayer(a.title,a.original,a.episodes)));
       $('titles').append(card);
     }
   }catch(e){if(rev===version)$('catalog-state').textContent=e.message;}

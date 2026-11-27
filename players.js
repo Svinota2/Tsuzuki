@@ -17,6 +17,13 @@ let qualities = [];
 let opening = null;
 let currentRelease = null;
 let episodes = [];
+let currentEpisode = null;
+let currentQuality = 0;
+let currentQuery = '';
+let currentOriginal = '';
+let expectedEpisodes = 0;
+let fallbackVisible = false;
+let qualitySwitching = false;
 
 function el(tag, text, className) {
   const node = document.createElement(tag);
@@ -51,6 +58,13 @@ function ensurePlayer() {
     player.el().style.setProperty('height', 'auto', 'important');
   });
   player.on('timeupdate', updateSkipButton);
+  player.on('loadeddata', () => {
+    qualitySwitching = false;
+    hideFallback();
+  });
+  player.on('error', () => {
+    if (activeSource === 'anilibria' && !qualitySwitching) handlePlaybackError();
+  });
   return player;
 }
 
@@ -113,13 +127,78 @@ function updateSkipButton() {
   button.hidden = !(time >= Math.max(0, opening.start - 5) && time <= opening.stop);
 }
 
-function playEpisode(episode, index) {
-  qualities = episodeQualities(episode);
-  opening = episodeOpening(episode);
-  if (!qualities.length) {
-    setStatus('У этой серии нет видео в AniLibria.');
+function hideFallback() {
+  const host = $('anilibria-fallback');
+  if (host) { host.hidden = true; host.replaceChildren(); }
+  fallbackVisible = false;
+}
+
+function kodikSearchUrl(title) {
+  return 'https://kodik.info/search?title=' + encodeURIComponent(String(title || currentQuery || '').trim());
+}
+
+function showFallback(reason, title) {
+  const host = $('anilibria-fallback');
+  if (!host) return;
+  host.replaceChildren();
+  const card = el('div', null, 'fallback-card');
+  card.append(
+    el('strong', 'На AniLibria это не открылось'),
+    el('p', reason || 'Тайтл может быть недоступен по лицензии или у релиза нет видео.', 'hint')
+  );
+  const actions = el('div', null, 'fallback-actions');
+  const kodik = el('a', 'Искать на Kodik', 'fallback-button');
+  kodik.href = kodikSearchUrl(title);
+  kodik.target = '_blank';
+  kodik.rel = 'noopener noreferrer';
+  const paste = el('button', 'Вставить ссылку Kodik', 'fallback-button ghost');
+  paste.type = 'button';
+  paste.onclick = () => {
+    setSource('kodik');
+    const form = $('kodik-form');
+    if (form) {
+      form.hidden = false;
+      form.elements.url?.focus();
+      form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+  actions.append(kodik, paste);
+  card.append(actions);
+  host.append(card);
+  host.hidden = false;
+  fallbackVisible = true;
+}
+
+function handlePlaybackError() {
+  if (activeSource !== 'anilibria' || !currentEpisode) return;
+  if (currentQuality < qualities.length - 1) {
+    currentQuality += 1;
+    qualitySwitching = true;
+    const quality = qualities[currentQuality];
+    setStatus('Поток не открылся, пробую ' + quality.label + '…');
+    hideFallback();
+    playUrl(quality.url, 'application/x-mpegURL');
     return;
   }
+  const error = player && player.error && player.error();
+  const codec = error && Number(error.code) === 4 ? 'Кодек или формат потока не поддерживается браузером.' : 'Браузер не смог декодировать поток AniLibria.';
+  setStatus('AniLibria: ' + codec);
+  showFallback(codec + ' Можно посмотреть этот тайтл через Kodik.', currentQuery);
+}
+
+function playEpisode(episode, index) {
+  currentRelease = currentRelease || null;
+  currentEpisode = episode;
+  qualities = episodeQualities(episode);
+  opening = episodeOpening(episode);
+  currentQuality = 0;
+  qualitySwitching = false;
+  if (!qualities.length) {
+    setStatus('У этой серии нет видео в AniLibria.');
+    showFallback('У релиза нет доступного HLS-потока. Открой его через Kodik.', currentQuery);
+    return;
+  }
+  hideFallback();
   showStage('video');
   const tools = $('player-tools');
   if (tools) tools.hidden = false;
@@ -154,7 +233,7 @@ function renderReleases(list) {
     return;
   }
   list.forEach((release) => {
-    const meta = [releaseYear(release), release.episodes_total ? release.episodes_total + ' сер.' : '']
+    const meta = [release.type?.description, releaseYear(release), release.episodes_total ? release.episodes_total + ' сер.' : '']
       .filter(Boolean).join(' · ');
     const button = el('button', '', 'release');
     button.type = 'button';
@@ -168,13 +247,21 @@ function renderReleases(list) {
 
 async function loadRelease(release) {
   currentRelease = release;
+  currentEpisode = null;
+  hideFallback();
   setStatus('Загружаю серии «' + releaseTitle(release) + '»…');
   try {
     episodes = await releaseEpisodes(release.id);
     renderEpisodes(episodes);
+    if (!episodes.length) {
+      setStatus(`${releaseTitle(release)} · у релиза нет серий.`);
+      showFallback('У этого релиза AniLibria нет серий. Открой тайтл через Kodik.', currentQuery);
+      return;
+    }
     setStatus(`${releaseTitle(release)} · ${episodes.length} сер.`);
   } catch (error) {
     setStatus(error.message || 'Не удалось загрузить серии.');
+    showFallback('Не удалось получить серии из AniLibria. Попробуй Kodik.', currentQuery);
   }
 }
 
@@ -182,36 +269,70 @@ function normalizeTitle(value) {
   return String(value || '').toLowerCase().replace(/[^a-zа-яё0-9]+/g, '');
 }
 
-async function searchAnilibria(query) {
+async function searchAnilibria(query, alternate = '') {
   const text = String(query || '').trim();
+  currentQuery = text;
+  currentOriginal = String(alternate || '').trim();
   if (!text) { setStatus('Введи название тайтла.'); return; }
+  hideFallback();
+  currentRelease = null;
+  currentEpisode = null;
   setStatus('Ищу в AniLibria…');
   const host = $('anilibria-episodes');
   if (host) host.replaceChildren();
   try {
-    const releases = await searchReleases(text);
+    const wantedTitles = [text, currentOriginal]
+      .filter(Boolean)
+      .map(normalizeTitle)
+      .filter((value, index, list) => value && list.indexOf(value) === index);
+    const queries = [text];
+    if (currentOriginal && normalizeTitle(currentOriginal) !== normalizeTitle(text)) queries.push(currentOriginal);
+    const releases = [];
+    const seen = new Set();
+    for (const value of queries) {
+      const rows = await searchReleases(value);
+      for (const release of rows) {
+        if (release && !seen.has(release.id)) { seen.add(release.id); releases.push(release); }
+      }
+    }
     renderReleases(releases);
-    const wanted = normalizeTitle(text);
     let best = null;
     let bestScore = 0;
     for (const release of releases) {
-      const name = normalizeTitle(releaseTitle(release));
-      if (!name || !wanted) continue;
-      if (name === wanted) { best = release; bestScore = 100; break; }
+      const names = [
+        releaseTitle(release),
+        release?.name?.english,
+        release?.name?.alternative,
+        release?.alias,
+      ].map(normalizeTitle).filter(Boolean);
       let score = 0;
-      if (name.startsWith(wanted) || wanted.startsWith(name)) score = 80;
-      else if (name.includes(wanted) || wanted.includes(name)) score = 60;
+      for (const name of names) {
+        for (const wanted of wantedTitles) {
+          if (name === wanted) score = Math.max(score, 100);
+          else if (name.startsWith(wanted) || wanted.startsWith(name)) score = Math.max(score, 80);
+          else if (name.includes(wanted) || wanted.includes(name)) score = Math.max(score, 60);
+        }
+      }
       if (score > bestScore) { best = release; bestScore = score; }
     }
     if (best && bestScore >= 60) {
+      const isMovie = best?.type?.value === 'MOVIE';
+      if (isMovie && expectedEpisodes > 1) {
+        setStatus(`На AniLibria есть только фильм «${releaseTitle(best)}». Сериала в AniLibria нет.`);
+        showFallback('Сериал недоступен на AniLibria по лицензии — доступен только фильм. Открой тайтл через Kodik.', text);
+        return;
+      }
       await loadRelease(best);
     } else if (!releases.length) {
-      setStatus('В AniLibria ничего не нашлось. Попробуй название иначе.');
+      setStatus('В AniLibria этого тайтла нет — скорее всего, он недоступен по лицензии.');
+      showFallback('AniLibria не отдаёт этот тайтл (лицензия или удалён из каталога). Можно найти его на Kodik.', text);
     } else {
-      setStatus('Точного совпадения нет — выбери подходящий релиз из списка.');
+      setStatus('Точного совпадения нет — выбери релиз из списка или открой тайтл через Kodik.');
+      showFallback('Подходящего релиза на AniLibria нет. Открой нужный тайтл через Kodik.', text);
     }
   } catch (error) {
     setStatus(error.message || 'AniLibria недоступна.');
+    showFallback('AniLibria не ответила. Можно попробовать Kodik.', text);
   }
 }
 
@@ -243,13 +364,14 @@ function openKodik(value) {
   showStage('kodik');
 }
 
-export function openPlayer(title) {
+export function openPlayer(title, original = '', episodeCount = 0) {
+  expectedEpisodes = Number(episodeCount) || 0;
   location.hash = 'player';
   setSource('anilibria');
   initPlayer();
   const form = $('anilibria-search');
   if (form && form.elements.q) form.elements.q.value = title || '';
-  if (title) searchAnilibria(title);
+  if (title) searchAnilibria(title, original);
   else setStatus('Найди тайтл по названию.');
 }
 
@@ -271,6 +393,8 @@ export function initPlayer() {
   if (search) {
     search.addEventListener('submit', (event) => {
       event.preventDefault();
+      expectedEpisodes = 0;
+      currentOriginal = '';
       searchAnilibria(search.elements.q.value);
     });
   }
@@ -291,6 +415,9 @@ export function initPlayer() {
       if (!player) return;
       const selected = qualities[Number(quality.value)] || qualities[0];
       if (!selected) return;
+      currentQuality = Math.max(0, Number(quality.value) || 0);
+      qualitySwitching = false;
+      hideFallback();
       const time = player.currentTime() || 0;
       player.src({ src: selected.url, type: 'application/x-mpegURL' });
       player.currentTime(time);

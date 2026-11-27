@@ -120,9 +120,10 @@
           <input name="q" placeholder="Название тайтла на AniLibria" aria-label="Название тайтла" required autocomplete="off">
           <button type="submit">Найти</button>
         </form>
-        <p class="hint">Прямые HLS-серии AniLibria в своём плеере — без рекламы, с качеством и пропуском опенинга.</p>
+        <p class="hint">Прямые HLS-серии AniLibria в своём плеере — без рекламы, с качеством и пропуском опенинга. Если тайтла нет — он недоступен на AniLibria по лицензии.</p>
         <div id="anilibria-releases" class="release-list"></div>
         <div id="anilibria-episodes" class="episode-list"></div>
+        <div id="anilibria-fallback" class="fallback" hidden></div>
       </div>
 
       <div class="source-panel" id="panel-kodik" hidden>
