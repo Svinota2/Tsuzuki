@@ -2,8 +2,9 @@
   <img src="docs/images/banner.svg" alt="Tsuzuki — трекер аниме для Windows, Linux, Android TV и телефона" width="100%">
 </p>
 
+
 <p align="center">
-  <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/версия-1.9.1-ff5d48?style=for-the-badge" alt="Версия 1.9.1"></a>
+  <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/github/v/release/Svinota2/Tsuzuki?label=%D0%B2%D0%B5%D1%80%D1%81%D0%B8%D1%8F&amp;color=ff5d48&amp;style=for-the-badge" alt="Последняя версия Tsuzuki"></a>
   <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows"></a>
   <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/Linux-deb%20%7C%20tar.gz-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux"></a>
   <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/Android-6.0+-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android 6.0+"></a>
@@ -11,10 +12,12 @@
   <a href="https://t.me/TsuzukiAnime"><img src="https://img.shields.io/badge/Telegram-канал-26A5E4?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram"></a>
 </p>
 
+
 <p align="center">
   <b>Каталог, трекер серий и встроенный плеер в одном приложении.<br>
   На компьютере, телевизоре и телефоне. Прогресс синхронизируется через Shikimori.</b>
 </p>
+
 
 <p align="center">
   <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><b>⬇&nbsp;&nbsp;Скачать Tsuzuki</b></a>
@@ -22,6 +25,7 @@
   &nbsp;·&nbsp; <a href="#-возможности">Возможности</a>
   &nbsp;·&nbsp; <a href="#-сборка">Сборка</a>
   &nbsp;·&nbsp; <a href="https://t.me/TsuzukiAnime">Новости</a>
+  &nbsp;·&nbsp; <a href="https://svinota2.github.io/Tsuzuki/">Веб-версия</a>
 </p>
 
 ---
