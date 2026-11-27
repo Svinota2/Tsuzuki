@@ -445,6 +445,14 @@ export function initPlayer() {
       searchAnilibria(search.elements.q.value);
     });
   }
+  const idleSearch = $('player-idle-search');
+  if (idleSearch) {
+    idleSearch.addEventListener('click', () => {
+      setSource('anilibria');
+      search?.elements.q?.focus();
+      search?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
   const seekHost = $('player-tools');
   if (seekHost) {
     seekHost.addEventListener('click', (event) => {
