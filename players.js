@@ -90,7 +90,7 @@ function playUrl(url, type) {
       container: holder,
       url,
       type: isHls ? 'm3u8' : 'mp4',
-      autoplay: true,
+      autoplay: false,
       playsinline: true,
       theme: '#ff6b5f',
       setting: true,
@@ -114,7 +114,6 @@ function playUrl(url, type) {
     player.on('video:error', () => {
       if (activeSource === 'anilibria' && !qualitySwitching) handlePlaybackError();
     });
-    player.play()?.catch(() => { /* браузер может потребовать клик */ });
   } catch (error) {
     setStatus('Не удалось открыть плеер: ' + (error?.message || error));
   }
