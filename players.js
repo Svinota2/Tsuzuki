@@ -133,14 +133,8 @@ function hideFallback() {
   fallbackVisible = false;
 }
 
-function kodikSearchUrl(title) {
-  return 'https://kodik.info/search?title=' + encodeURIComponent(String(title || currentQuery || '').trim());
-}
-
 function updateKodikHelp(title) {
   const value = String(title || currentQuery || releaseTitle(currentRelease) || '').trim();
-  const link = $('kodik-search-link');
-  if (link) link.href = kodikSearchUrl(value);
   const copy = $('kodik-copy-title');
   if (copy) copy.dataset.title = value;
 }
@@ -155,14 +149,14 @@ function showFallback(reason, title) {
     el('p', reason || 'Тайтл может быть недоступен по лицензии или у релиза нет видео.', 'hint')
   );
   const actions = el('div', null, 'fallback-actions');
-  const kodik = el('a', 'Найти на Kodik', 'fallback-button');
-  kodik.href = kodikSearchUrl(title);
-  kodik.target = '_blank';
-  kodik.rel = 'noopener noreferrer';
-  const external = el('a', 'Открыть Kodik в новой вкладке', 'fallback-button ghost');
-  external.href = kodikSearchUrl(title);
-  external.target = '_blank';
-  external.rel = 'noopener noreferrer';
+  const kodik = el('button', 'Kodik — как открыть', 'fallback-button');
+  kodik.type = 'button';
+  kodik.onclick = () => {
+    setSource('kodik');
+    updateKodikHelp(title || currentQuery);
+    $('kodik-form')?.elements.url?.focus();
+    $('kodik-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
   const paste = el('button', 'Вставить ссылку Kodik', 'fallback-button ghost');
   paste.type = 'button';
   paste.onclick = () => {
@@ -175,7 +169,7 @@ function showFallback(reason, title) {
       form.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   };
-  actions.append(kodik, external, paste);
+  actions.append(kodik, paste);
   card.append(actions);
   host.append(card);
   host.hidden = false;
