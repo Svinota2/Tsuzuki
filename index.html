@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="apple-touch-icon" href="./icon.png">
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./vendor/video-js.min.css">
+  <link rel="stylesheet" href="./vendor/artplayer.css">
   <link rel="stylesheet" href="./style.css">
   <title>Tsuzuki — аниме без рекламы</title>
 </head>
@@ -102,7 +102,7 @@
       </div>
 
       <div id="player-stage" class="player-stage">
-        <video id="video" controls playsinline preload="metadata"></video>
+        <div id="video" class="artplayer-shell"></div>
         <div id="kodik-host" hidden></div>
       </div>
       <p id="player-status" class="status" role="status"></p>
@@ -110,8 +110,7 @@
         <button type="button" data-seek="-10" title="Назад на 10 секунд">⏪ 10</button>
         <button type="button" data-seek="10" title="Вперёд на 10 секунд">10 ⏩</button>
         <button type="button" id="player-skip" data-skip hidden>⏭ Пропустить опенинг</button>
-        <select id="player-quality" aria-label="Качество"></select>
-        <select id="player-speed" aria-label="Скорость"><option>0.75</option><option selected>1</option><option>1.25</option><option>1.5</option><option>2</option></select>
+        <span class="hint">Качество, скорость и полный экран — в плеере.</span>
       </div>
 
       <div class="source-panel" id="panel-anilibria">
@@ -209,7 +208,8 @@
   </footer>
 
   <output id="message" class="toast" aria-live="polite"></output>
-  <script src="./vendor/video.min.js"></script>
+  <script src="./vendor/hls.min.js"></script>
+  <script src="./vendor/artplayer.min.js"></script>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

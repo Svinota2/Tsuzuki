@@ -11,6 +11,7 @@ import {
 
 const $ = (id) => document.getElementById(id);
 let player = null;
+let hls = null;
 let initialized = false;
 let activeSource = 'anilibria';
 let qualities = [];
@@ -43,46 +44,85 @@ function setStatus(text) {
   if (node) node.textContent = text || '';
 }
 
-function ensurePlayer() {
-  if (player) return player;
-  if (!window.videojs) {
-    setStatus('Плеер не загрузился: не найден video.js.');
-    return null;
+function destroyPlayer() {
+  if (hls) { try { hls.destroy(); } catch { /* ignore */ } hls = null; }
+  if (player) { try { player.destroy(false); } catch { /* ignore */ } player = null; }
+  const holder = $('video');
+  if (holder) holder.replaceChildren();
+}
+
+function attachHls(video, src, art) {
+  if (hls) { try { hls.destroy(); } catch { /* ignore */ } hls = null; }
+  if (window.Hls && Hls.isSupported()) {
+    const instance = new Hls({ enableWorker: true });
+    hls = instance;
+    instance.loadSource(src);
+    instance.attachMedia(video);
+    instance.on(Hls.Events.ERROR, (_event, data) => {
+      if (!data || !data.fatal) return;
+      if (hls === instance) { try { instance.destroy(); } catch { /* ignore */ } hls = null; }
+      setStatus('Поток не открылся: ' + (data.details || 'HLS error'));
+      if (activeSource === 'anilibria' && !qualitySwitching) handlePlaybackError();
+      else if (activeSource === 'anilibria') showFallback('Видео не открылось. Попробуй другую озвучку или Kodik.', currentQuery);
+    });
+    art.once('destroy', () => {
+      if (hls === instance) { try { instance.destroy(); } catch { /* ignore */ } hls = null; }
+    });
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = src;
+  } else {
+    setStatus('Браузер не поддерживает HLS.');
   }
-  player = window.videojs('video', { controls: true, autoplay: true, fluid: true, responsive: true, preload: 'metadata' });
-  // video.js добавляет .video-dimensions с размером из метаданных — принудительно растягиваем на ширину блока
-  player.el().style.setProperty('width', '100%', 'important');
-  player.el().style.setProperty('height', 'auto', 'important');
-  player.on('loadedmetadata', () => {
-    player.el().style.setProperty('width', '100%', 'important');
-    player.el().style.setProperty('height', 'auto', 'important');
-  });
-  player.on('timeupdate', updateSkipButton);
-  player.on('loadeddata', () => {
-    qualitySwitching = false;
-    hideFallback();
-  });
-  player.on('error', () => {
-    if (activeSource === 'anilibria' && !qualitySwitching) handlePlaybackError();
-  });
-  return player;
 }
 
 function playUrl(url, type) {
-  const instance = ensurePlayer();
-  if (!instance) return;
   showStage('video');
-  instance.src({
-    src: url,
-    type: type || (/\.m3u8(\?|$)/i.test(url) ? 'application/x-mpegURL' : 'video/mp4'),
-  });
-  instance.play()?.catch(() => {});
+  destroyPlayer();
+  const holder = $('video');
+  if (!holder) return;
+  if (!window.Artplayer) { setStatus('Плеер не загрузился: ArtPlayer.'); return; }
+  const isHls = /mpegurl|m3u8/i.test(String(type || '')) || /\.m3u8(\?|$)/i.test(url);
+  const qualityList = isHls && qualities.length > 1
+    ? qualities.map((quality, index) => ({ html: quality.label, url: quality.url, default: index === currentQuality }))
+    : [];
+  try {
+    player = new Artplayer({
+      container: holder,
+      url,
+      type: isHls ? 'm3u8' : 'mp4',
+      autoplay: true,
+      playsinline: true,
+      theme: '#ff6b5f',
+      setting: true,
+      playbackRate: true,
+      aspectRatio: true,
+      fullscreen: true,
+      fullscreenWeb: true,
+      pip: true,
+      miniProgressBar: true,
+      mutex: true,
+      backdrop: true,
+      lang: 'ru',
+      quality: qualityList,
+      customType: { m3u8: (video, src, art) => attachHls(video, src, art) },
+    });
+    player.on('video:timeupdate', updateSkipButton);
+    player.on('video:loadedmetadata', () => {
+      qualitySwitching = false;
+      updateSkipButton();
+    });
+    player.on('video:error', () => {
+      if (activeSource === 'anilibria' && !qualitySwitching) handlePlaybackError();
+    });
+    player.play()?.catch(() => { /* браузер может потребовать клик */ });
+  } catch (error) {
+    setStatus('Не удалось открыть плеер: ' + (error?.message || error));
+  }
 }
 
 function showStage(kind) {
   const video = $('video');
-  if (player) player.el().style.display = kind === 'video' ? '' : 'none';
-  else if (video) video.style.display = kind === 'video' ? '' : 'none';
+  if (video) video.style.display = kind === 'video' ? '' : 'none';
   const kodikHost = $('kodik-host');
   if (kodikHost) kodikHost.hidden = kind !== 'kodik';
 }
@@ -111,19 +151,11 @@ function setSource(name) {
   }
 }
 
-function fillQualities() {
-  const select = $('player-quality');
-  if (!select) return;
-  select.replaceChildren();
-  qualities.forEach((quality, index) => select.add(new Option(quality.label, String(index), false, index === 0)));
-  select.hidden = qualities.length < 2;
-}
-
 function updateSkipButton() {
   const button = $('player-skip');
   if (!button) return;
   if (!opening || !player) { button.hidden = true; return; }
-  const time = player.currentTime() || 0;
+  const time = Number(player.currentTime) || 0;
   button.hidden = !(time >= Math.max(0, opening.start - 5) && time <= opening.stop);
 }
 
@@ -187,8 +219,8 @@ function handlePlaybackError() {
     playUrl(quality.url, 'application/x-mpegURL');
     return;
   }
-  const error = player && player.error && player.error();
-  const codec = error && Number(error.code) === 4 ? 'Кодек или формат потока не поддерживается браузером.' : 'Браузер не смог декодировать поток AniLibria.';
+  const code = player?.video?.error?.code;
+  const codec = Number(code) === 4 ? 'Кодек или формат потока не поддерживается браузером.' : 'Браузер не смог декодировать поток AniLibria.';
   setStatus('AniLibria: ' + codec);
   showFallback(codec + ' Можно посмотреть этот тайтл через Kodik.', currentQuery);
 }
@@ -209,7 +241,6 @@ function playEpisode(episode, index) {
   showStage('video');
   const tools = $('player-tools');
   if (tools) tools.hidden = false;
-  fillQualities();
   setStatus(`${releaseTitle(currentRelease)} · ${episodeLabel(episode, index)}`);
   playUrl(qualities[0].url, 'application/x-mpegURL');
   updateSkipButton();
@@ -420,31 +451,10 @@ export function initPlayer() {
     seekHost.addEventListener('click', (event) => {
       const seek = event.target.closest('[data-seek]');
       if (seek && player) {
-        player.currentTime(Math.max(0, (player.currentTime() || 0) + Number(seek.dataset.seek)));
+        player.currentTime = Math.max(0, (Number(player.currentTime) || 0) + Number(seek.dataset.seek));
         return;
       }
-      if (event.target.closest('[data-skip]') && opening && player) player.currentTime(opening.stop);
-    });
-  }
-  const quality = $('player-quality');
-  if (quality) {
-    quality.addEventListener('change', () => {
-      if (!player) return;
-      const selected = qualities[Number(quality.value)] || qualities[0];
-      if (!selected) return;
-      currentQuality = Math.max(0, Number(quality.value) || 0);
-      qualitySwitching = false;
-      hideFallback();
-      const time = player.currentTime() || 0;
-      player.src({ src: selected.url, type: 'application/x-mpegURL' });
-      player.currentTime(time);
-      player.play()?.catch(() => {});
-    });
-  }
-  const speed = $('player-speed');
-  if (speed) {
-    speed.addEventListener('change', () => {
-      if (player) player.playbackRate(Number(speed.value) || 1);
+      if (event.target.closest('[data-skip]') && opening && player) player.currentTime = opening.stop;
     });
   }
   const kodik = $('kodik-form');
