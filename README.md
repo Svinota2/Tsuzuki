@@ -4,7 +4,7 @@
 
 
 <p align="center">
-  <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/github/v/release/Svinota2/Tsuzuki?label=%D0%B2%D0%B5%D1%80%D1%81%D0%B8%D1%8F&amp;color=ff5d48&amp;style=for-the-badge" alt="Последняя версия Tsuzuki"></a>
+  <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/github/v/release/Svinota2/Tsuzuki?sort=semver&amp;label=%D0%B2%D0%B5%D1%80%D1%81%D0%B8%D1%8F&amp;color=ff5d48&amp;style=for-the-badge" alt="Последняя версия Tsuzuki"></a>
   <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows"></a>
   <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/Linux-deb%20%7C%20tar.gz-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux"></a>
   <a href="https://github.com/Svinota2/Tsuzuki/releases/latest"><img src="https://img.shields.io/badge/Android-6.0+-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android 6.0+"></a>
