@@ -1,1 +1,1 @@
-{"name":"Tsuzuki","short_name":"Tsuzuki","lang":"ru","start_url":"/Tsuzuki/","scope":"/Tsuzuki/","display":"standalone","background_color":"#121319","theme_color":"#171921","icons":[{"src":"icon.png","type":"image/png","sizes":"any"}]}
+{"background_color":"#0e1015","short_name":"Tsuzuki","icons":[{"sizes":"any","type":"image/png","src":"icon.png"}],"lang":"ru","theme_color":"#0e1015","display":"standalone","name":"Tsuzuki","scope":"/Tsuzuki/","start_url":"/Tsuzuki/"}

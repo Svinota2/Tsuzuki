@@ -12,9 +12,19 @@ function note(text) {
 }
 function setUser(value){
   login=value;
-  $('profile').textContent=login ? 'Аккаунт' : 'Войти';
+  $('profile').textContent=login ? '@'+login : 'Войти';
   $('logged').hidden=!login; $('auth').hidden=!!login;
-  $('who').textContent=login?'Вы вошли как '+login:'';
+  $('who').textContent=login||'';
+  if(!login){$('account-count').textContent='—';$('account-watching').textContent='—';$('account-completed').textContent='—';}
+}
+async function accountStats(){
+  if(!login)return;
+  try{
+    const rows=await api('library');
+    $('account-count').textContent=rows.length;
+    $('account-watching').textContent=rows.filter(a=>a.status==='watching').length;
+    $('account-completed').textContent=rows.filter(a=>a.status==='completed').length;
+  }catch(e){note(e.message);}
 }
 function el(tag,text,cls){
   const n=document.createElement(tag); if(text)n.textContent=text; if(cls)n.className=cls; return n;
@@ -87,7 +97,7 @@ async function render(){
   document.querySelectorAll('main section').forEach(n=>n.hidden=n.id!==current);
   document.querySelectorAll('nav a').forEach(a=>a.setAttribute('aria-current',a.hash==='#'+current?'page':'false'));
   if(current==='player')enterPlayer();else pausePlayer();
-  try{if(current==='catalog')await catalog();if(current==='library')await library();}catch(e){note(e.message);}
+  try{if(current==='catalog')await catalog();if(current==='library')await library();if(current==='account')await accountStats();}catch(e){note(e.message);}
 }
 $('logout').onclick=async()=>{try{await api('logout','POST',{});pending=null;setUser(null);$('entries').replaceChildren();note('Вы вышли из аккаунта');}catch(e){note(e.message);}};
 $('search').onsubmit=e=>{e.preventDefault();catalog();};
