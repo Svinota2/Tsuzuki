@@ -139,9 +139,10 @@
           <button type="submit">Открыть</button>
         </form>
         <p class="hint">Kodik на сайте открывается как есть — с рекламой его плеера. Без рекламы Kodik играет в приложении Tsuzuki.</p>
+        <div id="kodik-results" class="fallback" hidden></div>
         <div class="kodik-help">
-          <strong>Чего нет на AniLibria?</strong>
-          <p>Поиск Kodik из браузера недоступен: <code>kodik.info</code> у части провайдеров блокируется, а Kodik API не разрешает запросы с сайта. Открой тайтл в приложении Tsuzuki — там Kodik работает с автоподбором токена. Если у тебя уже есть прямая ссылка вида <code>https://kodikplayer.com/…</code>, вставь её в поле выше.</p>
+          <strong>Не нашлось автоматически?</strong>
+          <p>Вставь прямую ссылку на плеер вида <code>https://kodikplayer.com/…</code> в поле выше. Или открой тайтл в приложении Tsuzuki — там Kodik работает с автоподбором.</p>
           <div class="fallback-actions">
             <a class="fallback-button" href="https://github.com/Svinota2/Tsuzuki/releases/latest" target="_blank" rel="noopener noreferrer">Открыть Tsuzuki ↗</a>
             <button type="button" id="kodik-copy-title" class="fallback-button ghost">Скопировать название</button>

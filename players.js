@@ -25,6 +25,10 @@ let currentOriginal = '';
 let expectedEpisodes = 0;
 let fallbackVisible = false;
 let qualitySwitching = false;
+let kodikTokenCandidates = null;
+let kodikTokenAt = 0;
+let kodikWorkingToken = '';
+let lastKodikQuery = '';
 
 function el(tag, text, className) {
   const node = document.createElement(tag);
@@ -170,6 +174,174 @@ function updateKodikHelp(title) {
   if (copy) copy.dataset.title = value;
 }
 
+
+// ============================================================
+//  Kodik API в браузере (1.9.12)
+//  Публичные токены AnimeParsers пробуем по очереди: Kodik API
+//  доступен с CORS, но конкретный токен может протухнуть.
+// ============================================================
+const KODIK_TOKENS_URL = 'https://raw.githubusercontent.com/YaNesyTortiK/AnimeParsers/refs/heads/main/kdk_tokns/tokens.json';
+
+function base64Utf8(value) {
+  const binary = atob(value);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+function decodeKodikToken(encoded) {
+  const mid = Math.floor(encoded.length / 2);
+  const tail = base64Utf8(encoded.slice(0, mid).split('').reverse().join(''));
+  const head = base64Utf8(encoded.slice(mid).split('').reverse().join(''));
+  return head + tail;
+}
+
+async function loadKodikTokens() {
+  if (kodikTokenCandidates && Date.now() - kodikTokenAt < 10 * 60 * 1000) return kodikTokenCandidates;
+  const response = await fetch(KODIK_TOKENS_URL, { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+  if (!response.ok) throw new Error('не удалось получить список токенов Kodik');
+  const list = await response.json();
+  const tokens = [];
+  for (const group of ['stable', 'unstable']) {
+    for (const item of list?.[group] || []) {
+      try {
+        const token = decodeKodikToken(String(item?.tokn || ''));
+        if (token && !tokens.includes(token)) tokens.push(token);
+      } catch { /* следующий токен */ }
+    }
+  }
+  if (!tokens.length) throw new Error('нет доступных токенов Kodik');
+  kodikTokenCandidates = tokens;
+  kodikTokenAt = Date.now();
+  return tokens;
+}
+
+async function kodikSearchRequest(token, title) {
+  const params = new URLSearchParams({
+    token,
+    title,
+    limit: '24',
+    with_episodes: 'true',
+    types: 'anime,anime-serial',
+  });
+  const response = await fetch('https://kodik-api.com/search?' + params, {
+    cache: 'no-store',
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!response.ok) throw new Error('HTTP ' + response.status);
+  const data = await response.json();
+  if (data?.error) throw new Error(data.error);
+  return Array.isArray(data?.results) ? data.results : [];
+}
+
+async function searchKodik(title) {
+  const value = String(title || currentQuery || currentOriginal || '').trim();
+  if (!value) throw new Error('нет названия для поиска');
+  const tokens = await loadKodikTokens();
+  const ordered = kodikWorkingToken
+    ? [kodikWorkingToken, ...tokens.filter((token) => token !== kodikWorkingToken)]
+    : tokens;
+  let lastError = null;
+  for (const token of ordered) {
+    try {
+      const results = await kodikSearchRequest(token, value);
+      kodikWorkingToken = token;
+      return results;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  kodikTokenCandidates = null;
+  throw lastError || new Error('Kodik не ответил');
+}
+
+function renderKodikResults(results, title) {
+  const host = $('kodik-results');
+  if (!host) return;
+  host.hidden = false;
+  host.replaceChildren();
+  const card = el('div', null, 'fallback-card');
+  card.append(
+    el('strong', 'Kodik — выбери озвучку'),
+    el('p', 'Нажми озвучку, затем выбери серию в плеере Kodik. Внутри iframe есть реклама; без рекламы Kodik играет в приложении Tsuzuki.', 'hint')
+  );
+  const list = el('div', null, 'kodik-results');
+  for (const result of results.slice(0, 12)) {
+    const row = el('div', null, 'kodik-result-row');
+    const button = el('button', null, 'kodik-result');
+    button.type = 'button';
+    const label = String(result.title || title || 'Без названия');
+    const translation = result.translation?.title ? ' · ' + result.translation.title : '';
+    const meta = [];
+    if (result.year) meta.push(result.year);
+    if (result.episodes_count) meta.push(result.episodes_count + ' сер.');
+    button.append(
+      el('span', label + translation, 'kodik-result-title'),
+      el('span', meta.join(' · ') || 'Kodik', 'kodik-result-meta')
+    );
+    const linkValue = String(result.link || '');
+    const link = linkValue.startsWith('//') ? 'https:' + linkValue : linkValue;
+    button.onclick = () => {
+      if (!link) { setStatus('У этой озвучки нет ссылки на плеер.'); return; }
+      setSource('kodik');
+      openKodik(link);
+      $('kodik-host')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+    const external = el('a', '↗', 'kodik-result-open');
+    external.href = link;
+    external.target = '_blank';
+    external.rel = 'noopener noreferrer';
+    external.title = 'Открыть Kodik в новой вкладке';
+    row.append(button, external);
+    list.append(row);
+  }
+  card.append(list);
+  const retry = el('button', 'Повторить поиск', 'fallback-button ghost');
+  retry.type = 'button';
+  retry.onclick = () => findOnKodik(title);
+  card.append(retry);
+  host.append(card);
+  lastKodikQuery = String(title || currentQuery || '').trim();
+  setStatus('Kodik: найдено вариантов — ' + results.length + '. Выбери озвучку и серию.');
+  host.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function findOnKodik(title) {
+  const query = String(title || currentQuery || currentOriginal || '').trim();
+  const host = $('kodik-results');
+  if (!query) {
+    if (host) {
+      host.hidden = false;
+      host.replaceChildren(el('p', 'Сначала найди тайтл на AniLibria или введи название в поиске выше.', 'hint'));
+    }
+    setStatus('Сначала найди тайтл на AniLibria.');
+    return;
+  }
+  setSource('kodik');
+  updateKodikHelp(query);
+  if (host) {
+    host.hidden = false;
+    host.replaceChildren(el('p', 'Ищу на Kodik…', 'hint'));
+    host.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  setStatus('Ищу на Kodik…');
+  try {
+    const results = await searchKodik(query);
+    if (!results.length) {
+      if (host) {
+        host.replaceChildren(el('p', 'Kodik ничего не нашёл. Вставь прямую ссылку на плеер в поле выше.', 'hint'));
+      }
+      setStatus('Kodik ничего не нашёл.');
+      return;
+    }
+    renderKodikResults(results, query);
+  } catch (error) {
+    if (host) {
+      host.replaceChildren(el('p', 'Kodik не ответил: ' + (error?.message || 'ошибка') + '. Вставь прямую ссылку вручную.', 'hint'));
+    }
+    setStatus('Kodik не ответил.');
+  }
+}
+
 function showFallback(reason, title) {
   const host = $('anilibria-fallback');
   if (!host) return;
@@ -180,14 +352,9 @@ function showFallback(reason, title) {
     el('p', reason || 'Тайтл может быть недоступен по лицензии или у релиза нет видео.', 'hint')
   );
   const actions = el('div', null, 'fallback-actions');
-  const kodik = el('button', 'Kodik — как открыть', 'fallback-button');
+  const kodik = el('button', 'Найти на Kodik', 'fallback-button');
   kodik.type = 'button';
-  kodik.onclick = () => {
-    setSource('kodik');
-    updateKodikHelp(title || currentQuery);
-    $('kodik-form')?.elements.url?.focus();
-    $('kodik-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  };
+  kodik.onclick = () => findOnKodik(title);
   const paste = el('button', 'Вставить ссылку Kodik', 'fallback-button ghost');
   paste.type = 'button';
   paste.onclick = () => {
@@ -433,7 +600,11 @@ export function initPlayer() {
   document.querySelectorAll('.source').forEach((button) => {
     button.addEventListener('click', () => {
       setSource(button.dataset.source);
-      if (button.dataset.source === 'kodik') updateKodikHelp();
+      if (button.dataset.source === 'kodik') {
+        const title = currentQuery || releaseTitle(currentRelease) || currentOriginal;
+        if (title && title !== lastKodikQuery) findOnKodik(title);
+        else updateKodikHelp(title);
+      }
     });
   });
   const search = $('anilibria-search');
